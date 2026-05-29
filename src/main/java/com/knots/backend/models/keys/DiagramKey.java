@@ -4,6 +4,6 @@ import jakarta.persistence.Embeddable;
 
 @Embeddable
 public class DiagramKey {
-    private Integer diagramId;
-    private Integer extension;
+    private Long diagramId;
+    private Long extension;
 }

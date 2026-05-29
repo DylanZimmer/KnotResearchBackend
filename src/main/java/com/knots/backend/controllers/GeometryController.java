@@ -1,5 +1,6 @@
 package com.knots.backend.controllers;
 
+import com.knots.backend.models.dtos.GeometricLine;
 import com.knots.backend.models.dtos.GeometryDto;
 import com.knots.backend.services.GeometryService;
 
@@ -19,12 +20,12 @@ public class GeometryController {
     }
 
     @GetMapping("/diagram_info_rolf")
-    public GeometryDto getGeometryByDiagramId(@RequestParam Integer diagramId) {
+    public GeometryDto getGeometryByDiagramId(@RequestParam Long diagramId) {
         return geometryService.getGeometryByDiagramId(diagramId);
     }
 
     @PostMapping("copy_over")
-    public void copyGeometryByDiagramId(@RequestParam Integer diagramId) {
+    public void copyGeometryByDiagramId(@RequestParam Long diagramId) {
         geometryService.clearCurrentGeometry();
         geometryService.copyGeometryByDiagramId(diagramId);
     }
@@ -39,4 +40,8 @@ public class GeometryController {
         geometryService.performOrientationFlip();
     }
 
+    @PostMapping("/add_twist")
+    public void performAddTwist(@ModelAttribute GeometricLine line, @RequestParam String handedness) {
+        geometryService.performTwist(line, handedness);
+    }
 }

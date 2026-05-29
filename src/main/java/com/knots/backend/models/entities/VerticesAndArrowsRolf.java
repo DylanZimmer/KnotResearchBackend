@@ -9,12 +9,13 @@ import lombok.Data;
 @Data
 public class VerticesAndArrowsRolf {
     @Id
-    private int vaId;
-    private int diagramId;
-    private int startPoint;
-    private int endPoint;
+    private Long vaId;
+    private Long diagramId;
+    private Long startPoint;
+    private Long endPoint;
     @Column(name="strand_x")
-    private int strandX;
+    private Long strandX;
     @Column(name="strand_y")
-    private int strandY;
+    private Long strandY;
+
 }

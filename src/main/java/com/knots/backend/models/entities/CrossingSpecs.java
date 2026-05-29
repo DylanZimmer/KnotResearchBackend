@@ -8,14 +8,14 @@ import lombok.Data;
 public class CrossingSpecs {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer csId;
-    private Integer diagramId;
-    private Integer extension;
-    private Integer crossingId;
-    private Integer underLine;
-    private Integer overLine;
+    private Long csId;
+    private Long diagramId;
+    private Long extension;
+    private Long crossingId;
+    private Long underLine;
+    private Long overLine;
     @Column(name = "crossing_x")
-    private Integer crossingX;
+    private Long crossingX;
     @Column(name = "crossing_y")
-    private Integer crossingY;
+    private Long crossingY;
 }

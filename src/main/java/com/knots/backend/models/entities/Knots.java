@@ -6,7 +6,7 @@ import jakarta.persistence.Id;
 @Entity
 public class Knots {
     @Id
-    private int knotId;
+    private Long knotId;
     private String numCrossings;
     private String rolfIndex;
 }

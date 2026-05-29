@@ -20,12 +20,12 @@ public class KnotController {
     }
 
     @GetMapping("/knot_id")
-    public Integer getKnotId( @RequestParam("num_crossings") String numCrossings, @RequestParam("rolf_index") String rolfIndex) {
+    public Long getKnotId( @RequestParam("num_crossings") String numCrossings, @RequestParam("rolf_index") String rolfIndex) {
         return knotService.getKnotId(numCrossings, rolfIndex);
     }
 
     @GetMapping("/diagram_id")
-    public Integer getDiagramId( @RequestParam("num_crossings") String numCrossings, @RequestParam("rolf_index") String rolfIndex) {
+    public Long getDiagramId( @RequestParam("num_crossings") String numCrossings, @RequestParam("rolf_index") String rolfIndex) {
         return knotService.getDiagramId(numCrossings, rolfIndex);
     }
 }

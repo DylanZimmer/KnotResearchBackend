@@ -8,8 +8,8 @@ import lombok.Data;
 @Entity
 public class InvariantsRolf {
     @Id
-    private int knotId;
-    private int determinant;
+    private Long knotId;
+    private Long determinant;
     private String alexander_polynomial;
     private String jones_polynomial;
 }

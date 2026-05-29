@@ -13,7 +13,7 @@ public class InvariantRolfService {
 
     private final InvariantRolfRepo invariantRolfRepo;
 
-    public InvariantDto getInvariantsByKnotId(int knotId) {
+    public InvariantDto getInvariantsByKnotId(Long knotId) {
         InvariantsRolf invariants = invariantRolfRepo.findByKnotId(knotId);
 
         return new InvariantDto(

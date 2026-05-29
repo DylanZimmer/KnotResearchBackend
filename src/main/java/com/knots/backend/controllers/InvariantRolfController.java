@@ -15,7 +15,7 @@ public class InvariantRolfController {
     private final InvariantRolfService invariantRolfService;
 
     @GetMapping("/rolf_invariants")
-    public InvariantDto getInvariantsByKnotId(@RequestParam Integer knotId) {
+    public InvariantDto getInvariantsByKnotId(@RequestParam Long knotId) {
         return invariantRolfService.getInvariantsByKnotId(knotId);
     }
 }

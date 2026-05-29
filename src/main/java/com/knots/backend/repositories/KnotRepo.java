@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
-public interface KnotRepo extends JpaRepository<Knots, Integer> {
+public interface KnotRepo extends JpaRepository<Knots, Long> {
 
     @Query(value = """
         SELECT num_crossings,
@@ -24,7 +24,7 @@ public interface KnotRepo extends JpaRepository<Knots, Integer> {
         WHERE k.numCrossings = :nc
         AND k.rolfIndex = :ri
     """)
-    Integer findDiagramId(String nc, String ri);
+    Long findDiagramId(String nc, String ri);
 
     @Query("""
         SELECT knotId
@@ -32,5 +32,5 @@ public interface KnotRepo extends JpaRepository<Knots, Integer> {
         WHERE numCrossings = :nc
         AND rolfIndex = :ri
     """)
-    Integer findKnotId(String nc, String ri);
+    Long findKnotId(String nc, String ri);
 }

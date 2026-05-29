@@ -9,13 +9,13 @@ import lombok.Data;
 @Data
 public class CrossingSpecsRolf {
     @Id
-    private int csId;
-    private int diagramId;
-    private int crossingId;
-    private int underLine;
-    private int overLine;
+    private Long csId;
+    private Long diagramId;
+    private Long crossingId;
+    private Long underLine;
+    private Long overLine;
     @Column(name="crossing_x")
-    private Integer crossingX;
+    private Long crossingX;
     @Column(name="crossing_y")
-    private Integer crossingY;
+    private Long crossingY;
 }

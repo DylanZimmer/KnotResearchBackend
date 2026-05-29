@@ -9,12 +9,12 @@ public class VerticesAndArrows {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long vaId;
-    private Integer diagramId;
-    private Integer extension;
-    private Integer startPoint;
-    private Integer endPoint;
+    private Long diagramId;
+    private Long extension;
+    private Long startPoint;
+    private Long endPoint;
     @Column(name="strand_x")
-    private Integer strandX;
+    private Long strandX;
     @Column(name="strand_y")
-    private Integer strandY;
+    private Long strandY;
 }

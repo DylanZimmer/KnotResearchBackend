@@ -6,9 +6,9 @@ import jakarta.persistence.Id;
 @Entity
 public class DiagramsRolf {
     @Id
-    private int knotId;
+    private Long knotId;
     private String nameRolf;
     private String conversionForFullNotation;
     private String startLine;
-    private int diagramId;
+    private Long diagramId;
 }

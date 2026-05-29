@@ -54,11 +54,11 @@ public class KnotService {
                 .toList();
     }
 
-    public Integer getKnotId(String crossing_num, String rolf_index) {
+    public Long getKnotId(String crossing_num, String rolf_index) {
         return knotRepo.findKnotId(crossing_num, rolf_index);
     }
 
-    public Integer getDiagramId(String crossing_num, String rolf_index) {
+    public Long getDiagramId(String crossing_num, String rolf_index) {
         return knotRepo.findDiagramId(crossing_num, rolf_index);
     }
 }
