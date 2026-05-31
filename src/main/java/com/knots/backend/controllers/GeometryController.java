@@ -3,6 +3,7 @@ package com.knots.backend.controllers;
 import com.knots.backend.models.dtos.GeometricLine;
 import com.knots.backend.models.dtos.GeometryDto;
 import com.knots.backend.services.GeometryService;
+import com.knots.backend.models.dtos.GeometryRequests.AddTwistRequest;
 
 import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +42,7 @@ public class GeometryController {
     }
 
     @PostMapping("/add_twist")
-    public void performAddTwist(@ModelAttribute GeometricLine line, @RequestParam String handedness) {
-        geometryService.performTwist(line, handedness);
+    public void performAddTwist(@RequestBody AddTwistRequest request) {
+        geometryService.performTwist(request.line(), request.handedness());
     }
 }
