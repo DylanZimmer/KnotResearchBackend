@@ -81,7 +81,7 @@ public class GeometryService {
 
         for (CrossingSpecs c : c_specs) {
             crossingSpecsList.add(
-                    List.of(
+                    Arrays.asList(
                             c.getCrossingId(),
                             c.getUnderLine(),
                             c.getOverLine()
