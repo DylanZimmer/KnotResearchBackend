@@ -84,7 +84,9 @@ public class GeometryService {
                     Arrays.asList(
                             c.getCrossingId(),
                             c.getUnderLine(),
-                            c.getOverLine()
+                            c.getOverLine(),
+                            c.getCrossingX(),
+                            c.getCrossingY()
                     )
             );
         }
