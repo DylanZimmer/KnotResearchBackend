@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface CrossingSpecsRepo extends JpaRepository<CrossingSpecs, Long> {
     CrossingSpecs findByCrossingId(Long cid);
 
@@ -27,5 +29,14 @@ public interface CrossingSpecsRepo extends JpaRepository<CrossingSpecs, Long> {
     Long getCurrDiagramId(@Param("crossingId") Long crossingId);
     @Query("SELECT c.extension FROM CrossingSpecs c WHERE c.crossingId = :crossingId")
     Long getCurrExtension(@Param("crossingId") Long crossingId);
+
+    @Query("""
+        SELECT c.crossingId
+        FROM CrossingSpecs c
+        WHERE c.crossingId NOT IN :cids
+        AND c.underLine IS NOT NULL
+        AND c.overLine IS NOT NULL
+    """)
+    List<Long> getRemainingCrossingIds(@Param("cids") List<Long> cids);
 
 }

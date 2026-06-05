@@ -184,6 +184,29 @@ public class GeometryService {
         return 0;
     }
 
+    private List<Long> getWalk(long arrow1, long arrow2) {
+        long currStep = arrow1;
+        List<Long> walk = new ArrayList<>();
+        walk.add(currStep);
+        while (currStep != arrow2) {
+            currStep = verticesAndArrowsRepo.findEndPointByStartPoint(currStep);
+            walk.add(currStep);
+        }
+        return walk;
+    }
+
+    private boolean redoNeeded(List<Long> remainingCids, List<Long> walk) {
+        for (Long cid : remainingCids) {
+            CrossingSpecs cspec = crossingSpecsRepo.findByCrossingId(cid);
+            long under = cspec.getUnderLine();
+            long over = cspec.getOverLine();
+            if (walk.contains(under) && walk.contains(over)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     //Assume cid1 is the crossing the polyline is coming from based on the orientation
     //crossing_specs has cid1, placement1, cid2, placement2
     //This gives me the arrows that the line is between
@@ -191,14 +214,19 @@ public class GeometryService {
     public List<Long> findWalkFromLine(GeometricLine line) {
         long arrow1 = getArrowFromCrossingSpecs(line.cid1(), line.placement1());
         long arrow2 = getArrowFromCrossingSpecs(line.cid2(), line.placement2());
-        long currStep = arrow1;
-        List<Long> walk = new ArrayList<>();
-        walk.add(arrow1);
-        while (currStep != arrow2) {
-            currStep = verticesAndArrowsRepo.findEndPointByStartPoint(currStep);
-            walk.add(currStep);
+        List<Long> remainingCids = crossingSpecsRepo.getRemainingCrossingIds(List.of(line.cid1(), line.cid2()));
+        List<Long> walk = getWalk(arrow1, arrow2);
+        boolean redoNeeded = redoNeeded(remainingCids, walk);
+        if (!redoNeeded) {
+            return walk;
+        } else {
+            walk = getWalk(arrow2, arrow1);
+            if (!redoNeeded(remainingCids, walk)) {
+                return walk;
+            } else {
+                return new ArrayList<>();
+            }
         }
-        return walk;
     }
 
     public long mid(long x, long y) {
@@ -266,7 +294,6 @@ public class GeometryService {
             twistCoordinates = twistCoordinatesThreePlusSegments(walk);
             arrow = walk.get(1);
         }
-
         CrossingSpecs cspec = new CrossingSpecs();
         long maxCId = crossingSpecsRepo.getMaxCrossingId();
         cspec.setCrossingId(maxCId + 1);

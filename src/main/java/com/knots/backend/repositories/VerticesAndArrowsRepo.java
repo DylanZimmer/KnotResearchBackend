@@ -8,7 +8,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface VerticesAndArrowsRepo extends JpaRepository<VerticesAndArrows, Long> {
-    Long findEndPointByStartPoint(Long startPoint);
+    @Query("""
+            SELECT v.endPoint
+            FROM VerticesAndArrows v
+            WHERE v.startPoint = :startPoint
+    """)
+    Long findEndPointByStartPoint(@Param("startPoint") Long startPoint);
     @Query("""
             SELECT new com.knots.backend.models.dtos.Coordinates(v.strandX, v.strandY)
             FROM VerticesAndArrows v
