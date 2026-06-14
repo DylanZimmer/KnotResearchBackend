@@ -1,6 +1,6 @@
 package com.knots.backend.repositories;
 
-import com.knots.backend.models.dtos.Coordinates;
+import com.knots.backend.models.dtos.LongPair;
 import com.knots.backend.models.entities.CrossingSpecs;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,11 +13,11 @@ public interface CrossingSpecsRepo extends JpaRepository<CrossingSpecs, Long> {
     CrossingSpecs findByCrossingId(Long cid);
 
     @Query("""
-            SELECT new com.knots.backend.models.dtos.Coordinates(c.crossingX, c.crossingY)
+            SELECT new com.knots.backend.models.dtos.LongPair(c.crossingX, c.crossingY)
             FROM CrossingSpecs c
             WHERE c.crossingId = :crossingId
     """)
-    Coordinates findCrossingCoordinatesFromCrossingId(@Param("crossingId") Long crossingId);
+    LongPair findCrossingCoordinatesFromCrossingId(@Param("crossingId") Long crossingId);
 
     @Query("SELECT MAX(c.crossingId) FROM CrossingSpecs c")
     Long getMaxCrossingId();

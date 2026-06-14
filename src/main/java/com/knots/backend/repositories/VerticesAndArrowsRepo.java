@@ -1,7 +1,7 @@
 package com.knots.backend.repositories;
 
 import com.knots.backend.models.entities.VerticesAndArrows;
-import com.knots.backend.models.dtos.Coordinates;
+import com.knots.backend.models.dtos.LongPair;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,9 +15,9 @@ public interface VerticesAndArrowsRepo extends JpaRepository<VerticesAndArrows, 
     """)
     Long findEndPointByStartPoint(@Param("startPoint") Long startPoint);
     @Query("""
-            SELECT new com.knots.backend.models.dtos.Coordinates(v.strandX, v.strandY)
+            SELECT new com.knots.backend.models.dtos.LongPair(v.strandX, v.strandY)
             FROM VerticesAndArrows v
             WHERE v.startPoint = :startPoint
     """)
-    Coordinates findStrandCoordinatesFromStartPoint(@Param("startPoint") Long startPoint);
+    LongPair findStrandCoordinatesFromStartPoint(@Param("startPoint") Long startPoint);
 }

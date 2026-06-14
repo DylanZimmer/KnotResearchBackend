@@ -1,13 +1,14 @@
 package com.knots.backend.services;
 
 import com.knots.backend.models.dtos.GeometricLine;
-import com.knots.backend.models.dtos.Coordinates;
+import com.knots.backend.models.dtos.LongPair;
 import com.knots.backend.models.dtos.GeometryDto;
 import com.knots.backend.models.entities.*;
 import com.knots.backend.repositories.VerticesAndArrowsRolfRepo;
 import com.knots.backend.repositories.VerticesAndArrowsRepo;
 import com.knots.backend.repositories.CrossingSpecsRolfRepo;
 import com.knots.backend.repositories.CrossingSpecsRepo;
+import com.knots.backend.repositories.DiagramsRolfRepo;
 
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class GeometryService {
     private final VerticesAndArrowsRepo verticesAndArrowsRepo;
     private final CrossingSpecsRolfRepo crossingSpecsRolfRepo;
     private final CrossingSpecsRepo crossingSpecsRepo;
+    private final DiagramsRolfRepo diagramsRolfRepo;
 
     public GeometryDto getGeometryByDiagramId(Long diagramId) {
 
@@ -110,6 +112,10 @@ public class GeometryService {
                 arrowsList,
                 crossingSpecsList
         );
+    }
+
+    public long getDiagramIdByKnotId(Long knotId) {
+        return diagramsRolfRepo.getDiagramIdByKnotId(knotId);
     }
 
     @Transactional
@@ -236,19 +242,19 @@ public class GeometryService {
     }
 
     //Between the crossings
-    public Coordinates twistCoordinatesOneSegment(Long cid1, Long cid2) {
-        Coordinates start = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid1);
-        Coordinates end = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid2);
-        return new Coordinates (mid(start.x(),end.x()), mid(start.y(), end.y()));
+    public LongPair twistCoordinatesOneSegment(Long cid1, Long cid2) {
+        LongPair start = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid1);
+        LongPair end = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid2);
+        return new LongPair (mid(start.x(),end.x()), mid(start.y(), end.y()));
     }
 
-    //public Coordinates getArrowTwoSegments()
+    //public LongPair getArrowTwoSegments()
 
     //On the larger segment
     public long twistSegmentChoiceTwoSegments(List<Long> walk, Long cid1, Long cid2) {
-        Coordinates bend = verticesAndArrowsRepo.findStrandCoordinatesFromStartPoint(walk.get(1));
-        Coordinates crossingCoords1 = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid1);
-        Coordinates crossingCoords2 = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid2);
+        LongPair bend = verticesAndArrowsRepo.findStrandCoordinatesFromStartPoint(walk.get(1));
+        LongPair crossingCoords1 = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid1);
+        LongPair crossingCoords2 = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid2);
         Long dist1 = Math.abs(crossingCoords1.x() - bend.x()) + Math.abs(crossingCoords1.y() - bend.y());
         Long dist2 = Math.abs(crossingCoords2.x() - bend.x()) + Math.abs(crossingCoords2.y() - bend.y());
         if (dist1 >= dist2) {
@@ -258,28 +264,28 @@ public class GeometryService {
         }
     }
 
-    public Coordinates twistCoordinatesTwoSegments(List<Long> walk, Long cid) {
-        Coordinates bend = verticesAndArrowsRepo.findStrandCoordinatesFromStartPoint(walk.get(1));
-        Coordinates crossingCoords = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid);
-        return new Coordinates (mid(crossingCoords.x(), bend.x()), mid(crossingCoords.y(), bend.y()));
+    public LongPair twistCoordinatesTwoSegments(List<Long> walk, Long cid) {
+        LongPair bend = verticesAndArrowsRepo.findStrandCoordinatesFromStartPoint(walk.get(1));
+        LongPair crossingCoords = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(cid);
+        return new LongPair (mid(crossingCoords.x(), bend.x()), mid(crossingCoords.y(), bend.y()));
     }
 
     //On the first blank segment
-    public Coordinates twistCoordinatesThreePlusSegments(List<Long> walk) {
-        Coordinates start = verticesAndArrowsRepo.findStrandCoordinatesFromStartPoint(walk.get(1));
-        Coordinates end = verticesAndArrowsRepo.findStrandCoordinatesFromStartPoint(walk.get(2));
-        return new Coordinates (mid(start.x(),end.x()), mid(start.y(), end.y()));
+    public LongPair twistCoordinatesThreePlusSegments(List<Long> walk) {
+        LongPair start = verticesAndArrowsRepo.findStrandCoordinatesFromStartPoint(walk.get(1));
+        LongPair end = verticesAndArrowsRepo.findStrandCoordinatesFromStartPoint(walk.get(2));
+        return new LongPair (mid(start.x(),end.x()), mid(start.y(), end.y()));
     }
 
     //Take in geometricLine
     //Calculate arrows needed from vertices_and_arrows to get from one crossing to the other
-    //Find coordinates to put twist
+    //Find LongPair to put twist
     //Add one row to crossing_specs
     @Transactional
     public void performTwist(GeometricLine line, String handedness) {
         List<Long> walk = findWalkFromLine(line);
         long arrow = 0;
-        Coordinates twistCoordinates = null;
+        LongPair twistCoordinates = null;
         if (walk.size() == 1) {
             twistCoordinates = twistCoordinatesOneSegment(line.cid1(), line.cid2());
             long segment = walk.get(0);

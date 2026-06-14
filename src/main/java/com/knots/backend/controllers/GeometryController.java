@@ -1,9 +1,8 @@
+
 package com.knots.backend.controllers;
 
-import com.knots.backend.models.dtos.GeometricLine;
 import com.knots.backend.models.dtos.GeometryDto;
 import com.knots.backend.services.GeometryService;
-import com.knots.backend.models.dtos.GeometryRequests.AddTwistRequest;
 
 import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
@@ -23,26 +22,5 @@ public class GeometryController {
     @GetMapping("/diagram_info_rolf")
     public GeometryDto getGeometryByDiagramId(@RequestParam Long diagramId) {
         return geometryService.getGeometryByDiagramId(diagramId);
-    }
-
-    @PostMapping("copy_over")
-    public void copyGeometryByDiagramId(@RequestParam Long diagramId) {
-        geometryService.clearCurrentGeometry();
-        geometryService.copyGeometryByDiagramId(diagramId);
-    }
-
-    @PostMapping("/mirror")
-    public void performMirror() {
-        geometryService.performMirror();
-    }
-
-    @PostMapping("/orientation_flip")
-    public void performOrientationFlip() {
-        geometryService.performOrientationFlip();
-    }
-
-    @PostMapping("/add_twist")
-    public void performAddTwist(@RequestBody AddTwistRequest request) {
-        geometryService.performTwist(request.line(), request.handedness());
     }
 }
