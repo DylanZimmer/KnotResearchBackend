@@ -13,4 +13,6 @@ public class FullNotation {
     private Long arcIn;
     private Long arcOut;
     private Long crossingId;
+    private Long cidBefore;
+    private Long cidAfter;
 }

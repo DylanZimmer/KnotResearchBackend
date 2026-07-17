@@ -11,10 +11,10 @@ public class VerticesAndArrows {
     private Long vaId;
     private Long diagramId;
     private Long extension;
-    private Long startPoint;
-    private Long endPoint;
+    private Long point;
     @Column(name="strand_x")
     private Long strandX;
     @Column(name="strand_y")
     private Long strandY;
+    private String handedness;
 }

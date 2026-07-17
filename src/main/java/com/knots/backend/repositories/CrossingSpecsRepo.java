@@ -1,6 +1,7 @@
 package com.knots.backend.repositories;
 
 import com.knots.backend.models.dtos.LongPair;
+import com.knots.backend.models.dtos.TwoXYPairs;
 import com.knots.backend.models.entities.CrossingSpecs;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -30,6 +31,9 @@ public interface CrossingSpecsRepo extends JpaRepository<CrossingSpecs, Long> {
     @Query("SELECT c.extension FROM CrossingSpecs c WHERE c.crossingId = :crossingId")
     Long getCurrExtension(@Param("crossingId") Long crossingId);
 
+    @Query("SELECT c.crossingId FROM CrossingSpecs c ORDER BY crossingId")
+    List<Long> getAllCids();
+
     @Query("""
         SELECT c.crossingId
         FROM CrossingSpecs c
@@ -38,5 +42,12 @@ public interface CrossingSpecsRepo extends JpaRepository<CrossingSpecs, Long> {
         AND c.overLine IS NOT NULL
     """)
     List<Long> getRemainingCrossingIds(@Param("cids") List<Long> cids);
+
+    @Query("""
+        SELECT new com.knots.backend.models.dtos.TwoXYPairs(c.underLine, c.overLine, c.crossingX, c.crossingY)
+        FROM CrossingSpecs c
+        WHERE c.crossingId = :cid
+    """)
+    TwoXYPairs getLinesAndCoordsFromCid(@Param("cid") Long cid);
 
 }

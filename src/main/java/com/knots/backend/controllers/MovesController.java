@@ -1,12 +1,17 @@
 package com.knots.backend.controllers;
 
-import com.knots.backend.models.dtos.GeometryDto;
-import com.knots.backend.models.dtos.GeometryRequests.AddTwistRequest;
+import com.knots.backend.models.dtos.MoveRequests.AddTwistRequest;
+import com.knots.backend.models.dtos.MoveRequests.AddPokeRequest;
+import com.knots.backend.models.dtos.Walk;
 import com.knots.backend.services.GeometryService;
 import com.knots.backend.services.InvariantService;
+import com.knots.backend.models.dtos.GeometricLine;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/moves")
@@ -37,11 +42,31 @@ public class MovesController {
         invariantService.performOrientationFlip();
     }
 
+    /*
     @PostMapping("/add_twist")
     public void performAddTwist(@RequestBody AddTwistRequest request) {
         geometryService.performTwist(request.line(), request.handedness());
         invariantService.performTwist(request.line(), request.handedness());
-
     }
+
+    @PostMapping("/add_poke")
+    public void performAddPoke(@RequestBody AddPokeRequest request) {
+        geometryService.performPoke(request.line1(), request.line2());
+        //invariantService.performPoke(request.line1(), request.line2());
+    }
+
+    @GetMapping("/all_possible_pokes")
+    public Map<GeometricLine, List<GeometricLine>> getAllPokeOptions() {
+        return invariantService.getAllPokeOptions();
+    }
+     */
+
+    @GetMapping("/allCidsNDirecs")
+    public Map<Long, Walk> getSegmentsByCrossing() {
+        return geometryService.getSegmentsByCrossing();
+    }
+
+
+
 
 }
