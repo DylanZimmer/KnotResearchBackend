@@ -28,7 +28,7 @@ public interface VerticesAndArrowsRepo extends JpaRepository<VerticesAndArrows, 
     LongPair findStrandCoordinatesFromStartPoint(@Param("startPoint") Long startPoint);
      */
 
-    /*
+
     @Query("""
         SELECT new com.knots.backend.models.dtos.TwoXYPairs(v1.strandX, v1.strandY, v2.strandX, v2.strandY)
         FROM VerticesAndArrows v1, VerticesAndArrows v2
@@ -36,11 +36,13 @@ public interface VerticesAndArrowsRepo extends JpaRepository<VerticesAndArrows, 
         AND v2.point = :pt2
     """)
     TwoXYPairs getSegFromCrossingLine(@Param("pt1") Long pt1, @Param("pt2") Long pt2);
-    */
+
+
     @Query("""
         SELECT new com.knots.backend.models.dtos.LongPair(va.strandX, va.strandY)
         FROM VerticesAndArrows va
         WHERE va.point = :pt
     """)
     LongPair getCoordFromPt(@Param("pt") Long pt);
+
 }

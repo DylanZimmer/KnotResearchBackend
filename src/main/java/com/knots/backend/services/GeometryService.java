@@ -5,6 +5,7 @@ import com.knots.backend.models.entities.*;
 import com.knots.backend.repositories.*;
 
 import jakarta.transaction.Transactional;
+import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -359,27 +360,34 @@ public class GeometryService {
 
     //This will break if a crossing is on a bend. Irrelevant for now but potentially a thing later
     public Long checkSegmentForCrossing(LongPair corner1, LongPair corner2, Map<Long, LongPair> allCidCoords) {
+        Long dist = null;
+        Long nextCid = null;
         for (Map.Entry<Long, LongPair> crossings : allCidCoords.entrySet()) {
+            Long newDist = null;
             LongPair thisCidCoords = crossings.getValue();
             if (corner1.x().equals(corner2.x())) {
                 if (corner1.x().equals(thisCidCoords.x())) {
                     if ((corner1.y() < thisCidCoords.y() && thisCidCoords.y() < corner2.y())
                     || (corner2.y() < thisCidCoords.y() && thisCidCoords.y() < corner1.y())) {
-                        System.out.println("Hit equal x's   :  " + corner1 + "    " + corner2 + "     " + thisCidCoords);
-                        return crossings.getKey();
+                        newDist = Math.abs(thisCidCoords.y() - corner1.y());
                     }
                 }
             } else if (corner1.y().equals(corner2.y())) {
                 if (corner1.y().equals(thisCidCoords.y())) {
                     if ((corner1.x() < thisCidCoords.x() && thisCidCoords.x() < corner2.x())
                     || (corner2.x() < thisCidCoords.x() && thisCidCoords.x() < corner1.x())) {
-                        System.out.println("Hit equal ys   :  " + corner1 + "    " + corner2 + "     " + thisCidCoords);
-                        return crossings.getKey();
+                        newDist = Math.abs(thisCidCoords.x() - corner1.x());
                     }
                 }
             }
+            if (newDist != null) {
+                if (dist == null || newDist < dist) {
+                    dist = newDist;
+                    nextCid = crossings.getKey();
+                }
+            }
         }
-        return null;
+        return nextCid;
     }
 
     public Long getNextPoint(Long point, Collection<Long> allPoints, String handedness) {
@@ -401,64 +409,65 @@ public class GeometryService {
         return nextPoint;
     }
 
-    public Long walkToNextCid(Long point, Map<Long, LongPair> bendCoords, Map<Long, LongPair> allCidCoords, String handedness) {
+    public Pair<Long, DrawnLine.Direction> walkToNextCid(Long point, Map<Long, LongPair> bendCoords, Map<Long, LongPair> allCidCoords, String handedness) {
         Long nextCid = null;
         Long firstPoint = point;
+        LongPair firstCoords = null;
         while (nextCid == null) {
-            LongPair firstCoords = bendCoords.get(firstPoint);
+            firstCoords = bendCoords.get(firstPoint);
             Long secondPoint = getNextPoint(firstPoint, bendCoords.keySet(), handedness);
             LongPair secondCoords = bendCoords.get(secondPoint);
             nextCid = checkSegmentForCrossing(firstCoords, secondCoords, allCidCoords);
-            System.out.println("************************");
-            System.out.println(nextCid);
-            System.out.println(firstPoint + " : " + firstCoords + "     " + secondPoint + " : " + secondCoords);
-            System.out.println("&&&&&&&&&&&&&&&&&&&&&&&&");
             if (nextCid == null) {
                 firstPoint = secondPoint;
             }
         }
-        return nextCid;
+        LongPair nextCidCoords = crossingSpecsRepo.findCrossingCoordinatesFromCrossingId(nextCid);
+        DrawnLine.Direction dn = getDirection(firstCoords, nextCidCoords);
+        return Pair.of(nextCid, dn);
     }
 
 
-    public cidDirecCid.Direction getStartingDirec(LongPair c1, LongPair c2) {
+    public DrawnLine.Direction getDirection(LongPair c1, LongPair c2) {
         if (c1.x().equals(c2.x())) {
             if (c1.y() < c2.y()) {
-                return cidDirecCid.Direction.U;
+                return DrawnLine.Direction.U;
             } else if (c1.y() > c2.y()) {
-                return cidDirecCid.Direction.D;
+                return DrawnLine.Direction.D;
             }
         } else if (c1.y().equals(c2.y())) {
             if (c1.x() < c2.x()) {
-                return cidDirecCid.Direction.R;
+                return DrawnLine.Direction.R;
             } else if (c1.x() > c2.x()) {
-                return cidDirecCid.Direction.L;
+                return DrawnLine.Direction.L;
             }
         }
         return null;
     }
 
-    public cidDirecCid getCidDirecCid(Long cid, Long point, LongPair cidCoords, LongPair corner1, LongPair corner2, Map<Long, LongPair> allCidCoords, Map<Long, LongPair> bendCoords, String handedness) {
+    public DrawnLine getDrawnLine(Long cid, Long point, LongPair cidCoords, LongPair corner1, LongPair corner2, Map<Long, LongPair> allCidCoords, Map<Long, LongPair> bendCoords, String handedness) {
         Long nextCid = null;
-        cidDirecCid.Direction direc = null;
-
+        DrawnLine.Direction dn1 = null;
+        Long walkStart = null;
         if (handedness.equals("R")) {
             nextCid = checkSegmentForCrossing(cidCoords, corner2, allCidCoords);
-            direc = getStartingDirec(cidCoords, corner2);
+            dn1 = getDirection(cidCoords, corner2);
             if (nextCid != null) {
-                return new cidDirecCid (cid, direc, nextCid);
+                return new DrawnLine(cid, dn1, dn1, nextCid, DrawnLine.SameSeg.Y);
+                //Double dn1 because directions are the same for one-segment lines
             }
+            walkStart = getNextPoint(point, bendCoords.keySet(), handedness);
         } else {
             nextCid = checkSegmentForCrossing(cidCoords, corner1, allCidCoords);
-            direc = getStartingDirec(cidCoords, corner1);
+            dn1 = getDirection(cidCoords, corner1);
             if (nextCid != null) {
-                return new cidDirecCid (cid, direc, nextCid);
+                return new DrawnLine(cid, dn1, dn1, nextCid, DrawnLine.SameSeg.Y);
             }
+            walkStart = point;
         }
 
-        Long nextPoint = getNextPoint(point, bendCoords.keySet(), handedness);
-        nextCid = walkToNextCid(nextPoint, bendCoords, allCidCoords, handedness);
-        return new cidDirecCid (cid, direc, nextCid);
+        Pair<Long, DrawnLine.Direction> nextCidNDn = walkToNextCid(walkStart, bendCoords, allCidCoords, handedness);
+        return new DrawnLine (cid, dn1, nextCidNDn.getSecond(), nextCidNDn.getFirst());
     }
 
     public TwoXYPairs orderCoords(LongPair seg1, LongPair seg2) {
@@ -482,14 +491,19 @@ public class GeometryService {
     //Takes in cid, cidCrossLines, cidCoords, allCidCoords, allBends
     //Needs to output { (cid, Direc, cidx0), ... (cid, Direc, cidx3) }
     public Walk createEachDirection(Long cid, LongPair crossLines, LongPair crossCoords, Map<Long, LongPair> cidCoords, Map<Long, LongPair> bendCoords) {
+        /*
         TwoXYPairs seg1 = orderCoords(verticesAndArrowsRepo.getCoordFromPt(crossLines.x()), verticesAndArrowsRepo.getCoordFromPt(getNextPoint(crossLines.x(), bendCoords.keySet(), "R")));
         TwoXYPairs seg2 = orderCoords(verticesAndArrowsRepo.getCoordFromPt(crossLines.y()), verticesAndArrowsRepo.getCoordFromPt(getNextPoint(crossLines.y(), bendCoords.keySet(), "R")));
+        */
+
+        TwoXYPairs seg1 = verticesAndArrowsRepo.getSegFromCrossingLine(crossLines.x(), getNextPoint(crossLines.x(), bendCoords.keySet(), "R"));
+        TwoXYPairs seg2 = verticesAndArrowsRepo.getSegFromCrossingLine(crossLines.y(), getNextPoint(crossLines.y(), bendCoords.keySet(), "R"));
         //The handedness shortcut isn't working. For 1 R on the trefoil I'm hitting it last, and the points should be going down but the handedness is R
         //I think I should go in and make each function return each side's cDC
-        return new Walk (List.of (getCidDirecCid(cid, crossLines.x(), crossCoords, new LongPair(seg1.x1(), seg1.y1()), new LongPair(seg1.x2(), seg1.y2()), cidCoords, bendCoords, "L"),
-        getCidDirecCid(cid, crossLines.x(), crossCoords, new LongPair(seg1.x1(), seg1.y1()), new LongPair(seg1.x2(), seg1.y2()), cidCoords, bendCoords, "R"),
-        getCidDirecCid(cid, crossLines.y(), crossCoords, new LongPair(seg2.x1(), seg2.y1()), new LongPair(seg2.x2(), seg2.y2()), cidCoords, bendCoords, "L"),
-        getCidDirecCid(cid, crossLines.y(), crossCoords, new LongPair(seg2.x1(), seg2.y1()), new LongPair(seg2.x2(), seg2.y2()), cidCoords, bendCoords, "R") ));
+        return new Walk (List.of (getDrawnLine(cid, crossLines.x(), crossCoords, new LongPair(seg1.x1(), seg1.y1()), new LongPair(seg1.x2(), seg1.y2()), cidCoords, bendCoords, "L"),
+        getDrawnLine(cid, crossLines.x(), crossCoords, new LongPair(seg1.x1(), seg1.y1()), new LongPair(seg1.x2(), seg1.y2()), cidCoords, bendCoords, "R"),
+        getDrawnLine(cid, crossLines.y(), crossCoords, new LongPair(seg2.x1(), seg2.y1()), new LongPair(seg2.x2(), seg2.y2()), cidCoords, bendCoords, "L"),
+        getDrawnLine(cid, crossLines.y(), crossCoords, new LongPair(seg2.x1(), seg2.y1()), new LongPair(seg2.x2(), seg2.y2()), cidCoords, bendCoords, "R") ));
     };
 
 
@@ -531,37 +545,203 @@ public class GeometryService {
     }
 
 
-
-    /*
-    public Walk remUsedCdcs(List<List<cidDirecCid>> boundaries, Walk cDirecCs) {
-        Walk newCDirecCs = null;
-
-        return newCDirecCs;
-    }
-    */
-
-    /*
-    public void createBoundariesFromWalks(Map<Long, Walk> cdcPerCid) {
-        //walks looks like { 0 : { (0, U, cidx1), ... (0, L, cidx4) }
-        //Each cdc should be in two boundaries, except for maybe twists? But as a base I'm
-            //Free to put in that rule
-        //Because the point is to go through every cDirecC from each cid and I can skip
-            //The cDirecC's that are already in two dimensions
-
-        List<List<cidDirecCid>> boundaries = null;
-
-        for (Map.Entry<Long, Walk> entry : cdcPerCid.entrySet()) {
-            Long cid = entry.getKey();
-            Walk cDirecCs = entry.getValue();
-            cDirecCs = remUsedCdcs(boundaries, cDirecCs);
-            for (cidDirecCid cDc : cDirecCs) {
-
+    public Pair<List<List<DrawnLine>>, Map<Walk, Walk>> checkLatestLinesForBoundaries(Map<Walk, Walk> nextLines) {
+        List<List<DrawnLine>> tmpBoundaries = new ArrayList<>();
+        for (Map.Entry<Walk, Walk> entry : nextLines.entrySet()) {
+            Walk newEntries = entry.getValue();
+            Walk prevEntries = entry.getKey();
+            if (newEntries == null || prevEntries == null) {
+                return Pair.of(tmpBoundaries, nextLines);
             }
-            // use cid and walk
-        }) {
+            List<DrawnLine> prevSegments = prevEntries.segments();
+            Iterator<DrawnLine> iterator = newEntries.segments().iterator();
+            while (iterator.hasNext()) {
+                DrawnLine newLine = iterator.next();
+                for (int i = 0; i < prevSegments.size(); i++) {
+                    if (prevSegments.get(i).cid1().equals(newLine.cid2())) {
+                        List<DrawnLine> boundary = new ArrayList<>(prevSegments.subList(i, prevSegments.size()));
+                        boundary.add(newLine);
+                        tmpBoundaries.add(boundary);
+                        iterator.remove();
+                        break;
+                    }
+                }
+            }
+        }
+        return Pair.of(tmpBoundaries, nextLines);
+    }
 
+    public DrawnLine.Direction revDn(DrawnLine.Direction dn) {
+        if (dn == null) {
+            return null;
+        }
+        return switch (dn) {
+            case U -> DrawnLine.Direction.D;
+            case D -> DrawnLine.Direction.U;
+            case R -> DrawnLine.Direction.L;
+            case L -> DrawnLine.Direction.R;
+        };
+    }
+
+    public boolean reverseLines(DrawnLine line1, DrawnLine line2) {
+        if (line1.cid1().equals(line2.cid2()) &&
+            line1.cid2().equals(line2.cid1()) &&
+            Objects.equals(line1.dn1(), (revDn(line2.dn2()))) &&
+            Objects.equals(line1.dn2(), revDn(line2.dn1()))) {
+                return true;
+        } else {
+            return false;
         }
     }
-    */
 
+    //public void createNextLinesForBoundary(Map<Walk, Walk> nextLines, Map<Long, Walk> segs) {
+    public Map<Walk, Walk> createNextLinesForBoundary(Map<Walk, Walk> nextLines, Map<Long, Walk> segs) {
+        Map<Walk, Walk> newNxt = new HashMap<>();
+        for (Map.Entry<Walk, Walk> entry : nextLines.entrySet()) {
+            Walk prevWalk = entry.getKey();
+            Walk currentWalk = entry.getValue();
+            for (DrawnLine line : currentWalk.segments()) {
+                List<DrawnLine> extendedSegments = new ArrayList<>(prevWalk.segments());
+                if (!reverseLines(prevWalk.segments().get(prevWalk.segments().size()-1), line)) {
+                    extendedSegments.add(line);
+                    Walk extendedWalk = new Walk(extendedSegments);
+                    Walk nextWalk = segs.get(line.cid2());
+                    newNxt.put(extendedWalk, nextWalk);
+                }
+            }
+        }
+        return newNxt;
+    }
+
+    public DrawnLine createReverseLine(DrawnLine line) {
+        return new DrawnLine(line.cid2(), revDn(line.dn2()), revDn(line.dn1()), line.cid1(), line.sameSeg());
+    }
+
+    public Pair<DrawnLine, DrawnLine> smallerDLCidFirst(DrawnLine line1, DrawnLine line2) {
+        if (line1.cid1() < line2.cid1()) {
+            return Pair.of(line1, line2);
+        } else {
+            return Pair.of(line2, line1);
+        }
+    }
+
+    public void updateLinesInBoundaries(Map<Pair<DrawnLine, DrawnLine>, Long> linesInBoundaries, List<List<DrawnLine>> newBoundaries) {
+        for (List<DrawnLine> boundary : newBoundaries) {
+            for (DrawnLine line : boundary) {
+                linesInBoundaries.merge(smallerDLCidFirst(line, createReverseLine(line)), 1L, Long::sum);
+            }
+        }
+    }
+
+    public void removeUsedUpSegs(Map<Long, Walk> segs, Map<Pair<DrawnLine, DrawnLine>, Long> linesInBoundaries) {
+        for (Map.Entry<Pair<DrawnLine, DrawnLine>, Long> entry : linesInBoundaries.entrySet()) {
+            if (entry.getValue() == 2) {
+                Pair<DrawnLine, DrawnLine> lines = entry.getKey();
+                removeLineFromSegs(segs, lines.getFirst());
+                removeLineFromSegs(segs, lines.getSecond());
+            }
+        }
+    }
+
+    private void removeLineFromSegs(Map<Long, Walk> segs, DrawnLine line) {
+        Walk walk = segs.get(line.cid1());
+        if (walk == null) return;
+        List<DrawnLine> remaining = new ArrayList<>(walk.segments());
+        remaining.remove(line);
+        if (remaining.isEmpty()) {
+            segs.remove(line.cid1());
+        } else {
+            segs.put(line.cid1(), new Walk(remaining));
+        }
+    }
+
+    public Pair<List<List<DrawnLine>>, Map<Walk, Long>> stepBoundaries(Map<Walk, Long> nextLines, Map<Long, Walk> segs) {
+        List<List<DrawnLine>> newBoundaries = new ArrayList<>();
+        Map<Walk, Long> newNextLines = new HashMap<>();
+
+        for (Map.Entry<Walk, Long> entry : nextLines.entrySet()) {
+            Walk prevWalk = entry.getKey();
+            Long cid = entry.getValue();
+            Walk currentWalk = segs.get(cid);
+            if (currentWalk == null) continue; // crossing already fully consumed; branch dies
+
+            List<DrawnLine> prevSegments = prevWalk.segments();
+            DrawnLine lastLine = prevSegments.get(prevSegments.size() - 1);
+
+            for (DrawnLine line : currentWalk.segments()) {
+                if (reverseLines(lastLine, line)) continue; // no immediate backtrack
+
+                boolean closed = false;
+                for (int i = 0; i < prevSegments.size(); i++) {
+                    if (prevSegments.get(i).cid1().equals(line.cid2())) {
+                        List<DrawnLine> boundary = new ArrayList<>(prevSegments.subList(i, prevSegments.size()));
+                        boundary.add(line);
+                        newBoundaries.add(boundary);
+                        closed = true;
+                        break;
+                    }
+                }
+                if (!closed) {
+                    List<DrawnLine> extended = new ArrayList<>(prevSegments);
+                    extended.add(line);
+                    newNextLines.put(new Walk(extended), line.cid2());
+                }
+            }
+        }
+        return Pair.of(newBoundaries, newNextLines);
+    }
+
+    public List<List<DrawnLine>> walkOnDrawnLinesForBoundaries(Map<Long, Walk> segs) {
+        Map<Pair<DrawnLine, DrawnLine>, Long> linesInBoundaries = new HashMap<>();
+        List<List<DrawnLine>> newBoundaries = new ArrayList<>();
+
+        Map<Walk, Long> nextLines = new HashMap<>();
+        DrawnLine seed = segs.values().iterator().next().segments().get(0);
+        nextLines.put(new Walk(List.of(seed)), seed.cid2());
+
+        while (!segs.isEmpty() && !nextLines.isEmpty()) {
+            if (nextLines.isEmpty()) {
+                DrawnLine remaining = segs.values().iterator().next().segments().get(0);
+                nextLines.put(new Walk(List.of(remaining)), remaining.cid2());
+            }
+            System.out.println("***********************");
+            System.out.println("segs   : " + segs);
+            System.out.println("nextLines : " + nextLines);
+            Pair<List<List<DrawnLine>>, Map<Walk, Long>> res = stepBoundaries(nextLines, segs);
+            System.out.println("res : " + res);
+            newBoundaries.addAll(res.getFirst());
+            updateLinesInBoundaries(linesInBoundaries, res.getFirst());
+            System.out.println("linesInBoundaries  : " + linesInBoundaries);
+            removeUsedUpSegs(segs, linesInBoundaries);
+            nextLines = res.getSecond();
+            System.out.println("nextLines : " + nextLines);
+        }
+        return newBoundaries;
+    }
+
+    public List<List<DrawnLine>> getBoundaries() {
+        Map<Long, Walk> segsFull = getSegmentsByCrossing();
+        Map<Long, Walk> segs = new HashMap<>();
+        List<List<DrawnLine>> boundaries = new ArrayList<>();
+        //First need to record & collapse the 2-crossing boundaries
+        //Then need to do a divergent walk from each segment
+        for (Map.Entry<Long, Walk> cidEntry : segsFull.entrySet()) {
+            Set<Long> seen = new HashSet<>();
+            List<DrawnLine> newSegs = new ArrayList<>();
+            for (DrawnLine line : cidEntry.getValue().segments()) {
+                Long lCid2 = line.cid2();
+                if (seen.add(lCid2)) {
+                    newSegs.add(line);
+                } else {
+                    //The two crossing boundaries are coming through but I should format the second line to have the cid2 first, be the way back
+                    boundaries.add(List.of(newSegs.stream().filter(seg -> seg.cid2().equals(lCid2)).findFirst().orElse(null), line));
+                    newSegs.removeIf(seg -> seg.cid2().equals(lCid2));
+                    newSegs.add(new DrawnLine(line.cid1(), null, null, lCid2));
+                }
+            }
+            segs.put(cidEntry.getKey(), new Walk(newSegs));
+        }
+        boundaries.addAll(walkOnDrawnLinesForBoundaries(segs));
+        return boundaries;
+    }
 }
