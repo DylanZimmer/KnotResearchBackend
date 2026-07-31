@@ -181,6 +181,221 @@ public class GeometryService {
         }
     }
 
+
+
+
+    //************************************************************************************************
+
+    public void addCSpecCorner(Long x, Long y, List<Pair<LongPair, LongPair>> segs) {
+        Pair<LongPair, LongPair> toSplit = null;
+        for (Pair<LongPair, LongPair> seg : segs) {
+            if (seg.getFirst().x().equals(seg.getSecond().x()) && seg.getFirst().x().equals(x)) {
+                toSplit = seg;
+                break;
+            }
+            if (seg.getFirst().y().equals(seg.getSecond().y()) && seg.getFirst().y().equals(y)) {
+                toSplit = seg;
+                break;
+            }
+        }
+        segs.remove(toSplit);
+        segs.add(Pair.of(new LongPair(toSplit.getFirst().x(), toSplit.getFirst().y()), new LongPair(x, y)));
+        segs.add(Pair.of(new LongPair(x, y), new LongPair(toSplit.getSecond().x(), toSplit.getSecond().y())));
+    }
+
+    public List<Pair<LongPair, LongPair>> organizeSegs(List<Pair<LongPair, LongPair>> segs) {
+        List<Pair<LongPair, LongPair>> organizedSegs = new ArrayList<>();
+        for (Pair<LongPair, LongPair> seg : segs) {
+            if (seg.getFirst().x() > seg.getSecond().x() || seg.getFirst().y() > seg.getSecond().y()) {
+                organizedSegs.add(Pair.of(seg.getSecond(), seg.getFirst()));
+            } else {
+                organizedSegs.add(seg);
+            }
+        }
+        return organizedSegs;
+    }
+
+    //New idea here to create the boundaries through looking at the sweep of the longest remaining segments
+    //Might be better to return a map instead of a list
+    public List<Pair<LongPair, LongPair>> getSegments() {
+        List<Pair<LongPair, LongPair>> segs = new ArrayList<>();
+        List<CrossingSpecs> c_specs = crossingSpecsRepo.findAll();
+        List<VerticesAndArrows> vs_and_as = verticesAndArrowsRepo.findAll();
+        for (VerticesAndArrows va : vs_and_as) {
+            segs.add(Pair.of(new LongPair (va.getStrandX(), va.getStrandY()), verticesAndArrowsRepo.getNextCoords(va.getPoint())));
+        }
+        for (CrossingSpecs c : c_specs) {
+            addCSpecCorner(c.getCrossingX(), c.getCrossingY(), segs);
+        }
+        return organizeSegs(segs);
+    }
+
+    public Pair<LongPair, LongPair> longestSeg(List<Pair<LongPair, LongPair>> segs) {
+        Long max = 0L;
+        Pair<LongPair, LongPair> longestSeg = null;
+        for (Pair<LongPair, LongPair> seg : segs) {
+            Long dist = Math.abs(seg.getFirst().x() - seg.getSecond().x()) + Math.abs(seg.getFirst().y() - seg.getSecond().y());
+            if (dist > max) {
+                longestSeg = seg;
+                max = dist;
+            }
+        }
+        return longestSeg;
+    }
+
+    public boolean isVertical(Pair<LongPair, LongPair> seg) {
+        if (seg.getFirst().x().equals(seg.getSecond().x())) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public List<List<Pair<LongPair, LongPair>>> sweepSeg(Pair<LongPair, LongPair> sweepSeg, List<Pair<LongPair, LongPair>> segs) {
+        List<List<Pair<LongPair, LongPair>>> inSweep = new ArrayList<>();
+        inSweep.add(new ArrayList<>());
+        inSweep.add(new ArrayList<>());
+        if (isVertical(sweepSeg)) {
+            for (Pair<LongPair, LongPair> seg : segs) {
+                if (sweepSeg.getFirst().y() <= seg.getFirst().y() && seg.getSecond().y() <= sweepSeg.getSecond().y()) {
+                    if (seg.getFirst().x() >= sweepSeg.getFirst().x()) { //On the seg, should be true for first or second. Equal on sweepSeg
+                        inSweep.get(0).add(seg);
+                    } else {
+                        inSweep.get(1).add(seg);
+                    }
+                }
+            }
+        } else {
+            for (Pair<LongPair, LongPair> seg : segs) {
+                if (sweepSeg.getFirst().x() <= seg.getFirst().x() && seg.getSecond().x() <= sweepSeg.getSecond().x()) {
+                    if (seg.getFirst().y() >= sweepSeg.getFirst().y()) { //On the seg, should be true for first or second. Equal on sweepSeg
+                        inSweep.get(0).add(seg);
+                    } else {
+                        inSweep.get(1).add(seg);
+                    }
+                }
+            }
+        }
+        return inSweep;
+    }
+
+    public Pair<LongPair, LongPair> getClosestSeg(Pair<LongPair, LongPair> seg, List<Pair<LongPair, LongPair>> partialBoundary) {
+        Pair<LongPair, LongPair> nextSeg = null;
+        Long minDist = 10000L;
+        if (isVertical(seg)) {
+            for (Pair<LongPair, LongPair> segInBoundary : partialBoundary) {
+                Long dist = Math.abs(seg.getFirst().x() - segInBoundary.getFirst().x());
+                if (dist < minDist && dist != 0L) {
+                    nextSeg = segInBoundary;
+                    minDist = dist;
+                }
+            }
+        } else {
+            for (Pair<LongPair, LongPair> segInBoundary : partialBoundary) {
+                Long dist = Math.abs(seg.getFirst().y() - segInBoundary.getFirst().y());
+                if (dist < minDist && dist != 0L) {
+                    nextSeg = segInBoundary;
+                    minDist = dist;
+                }
+            }
+        }
+        return nextSeg;
+    }
+
+
+    //I need to check if this is in the remainingSegs. If it's not then there's a line between them,
+    public List<Pair<LongPair, LongPair>> connectingSeg_s(Pair<LongPair, LongPair> seg1, Pair<LongPair, LongPair> seg2) {
+        List<Pair<LongPair, LongPair>> connectingSeg_s = new ArrayList<>();
+        //Will either return one connecting seg or two if seg1 and seg2 perfectly match
+        if (isVertical(seg1)) {
+            //assert isVertical(seg2);
+            if (seg1.getFirst().y().equals(seg2.getFirst().y())) {
+                connectingSeg_s.add(Pair.of(seg1.getFirst(), seg2.getFirst()));
+            }
+            if (seg1.getSecond().y().equals(seg2.getSecond().y())) {
+                connectingSeg_s.add(Pair.of(seg1.getSecond(), seg2.getSecond()));
+            }
+        } else {
+            //assert !isVertical(seg2);
+            if (seg1.getFirst().x().equals(seg2.getFirst().x())) {
+                connectingSeg_s.add(Pair.of(seg1.getFirst(), seg2.getFirst()));
+            }
+            if (seg1.getSecond().x().equals(seg2.getSecond().x())) {
+                connectingSeg_s.add(Pair.of(seg1.getSecond(), seg2.getSecond()));
+            }
+        }
+        return connectingSeg_s;
+    }
+
+    public List<List<Pair<LongPair, LongPair>>> completeBoundaryFromSweep(List<List<Pair<LongPair, LongPair>>> partialBoundariesFromSweep, List<Pair<LongPair, LongPair>> remainingSegs) {
+        List<List<Pair<LongPair, LongPair>>> fullBoundaries = partialBoundariesFromSweep;
+        //This will contain either all vertical or all horizontal. Then I need to connect them
+        while (!partialBoundariesFromSweep.isEmpty()) {
+            for (List<Pair<LongPair, LongPair>> boundary : partialBoundariesFromSweep) {
+                while (boundary.size() > 1) {
+                    Pair<LongPair, LongPair> nextSeg = boundary.get(0);
+                    Pair<LongPair, LongPair> seg2 = getClosestSeg(nextSeg, boundary);
+                    List<Pair<LongPair, LongPair>> connectingSeg_s = connectingSeg_s(nextSeg, seg2);
+                    fullBoundaries.boundary.addAll(connectingSeg_s);
+                }
+                if (!alreadyConnected(boundary.get(0), fullBoundaries.boundary)) {
+
+                }
+                partialBoundariesFromSweep.remove(boundary);
+            }
+        }
+
+        for (List<Pair<LongPair, LongPair>> boundary : partialBoundaries) {
+            for (Pair<LongPair, LongPair> seg : boundary) {
+                Pair<LongPair, LongPair> seg2 = getClosestSeg(seg, boundary);
+                List<Pair<LongPair, LongPair>> connectingSeg_s = connectingSeg_s(seg, seg2);
+                for (Pair<LongPair, LongPair> seg_s : connectingSeg_s) {
+
+                }
+            }
+        }
+        return newBoundaries;
+    }
+
+    public List<Pair<LongPair, LongPair>> remUsedSegs(List<Pair<LongPair, LongPair>> segs, List<List<Pair<LongPair, LongPair>>> boundaries) {
+        List<Pair<LongPair, LongPair>> remSegs = new ArrayList<>();
+        segLoop:
+        for (Pair<LongPair, LongPair> seg : segs) {
+            int cnt = 0;
+            for (List<Pair<LongPair, LongPair>> boundary : boundaries) {
+                for (Pair<LongPair, LongPair> boundedSeg : boundary) {
+                    if (boundedSeg.equals(seg)) {
+                        cnt ++;
+                        if (cnt == 2) {
+                            continue segLoop;
+                        }
+                    }
+                }
+            }
+            remSegs.add(seg);
+        }
+        return remSegs;
+    }
+
+    public List<List<Pair<LongPair, LongPair>>> getBoundaries() {
+        List<Pair<LongPair, LongPair>> remainingSegs = getSegments();
+        List<List<Pair<LongPair, LongPair>>> boundaries = new ArrayList<>();
+        //This will probably be a while loop until the boundaries are done or something
+        //probably while boundaries isn't done, or segs still has segs
+        while (!remainingSegs.isEmpty()) {
+            Pair<LongPair, LongPair> longestSeg = longestSeg(remainingSegs);
+            List<List<Pair<LongPair, LongPair>>> partialBoundaries = sweepSeg(longestSeg, remainingSegs);
+            boundaries.addAll(completeBoundaryFromSweep(partialBoundaries, remainingSegs));
+            remainingSegs = remUsedSegs(remainingSegs, boundaries);
+        }
+        return boundaries;
+    }
+
+
+
+
+
+
     /*
     public long getArrowFromCrossingSpecs(long cid, String placement) {
         CrossingSpecs cspecs = crossingSpecsRepo.findByCrossingId(cid);
@@ -358,6 +573,7 @@ public class GeometryService {
 
 
 
+    /*
     //This will break if a crossing is on a bend. Irrelevant for now but potentially a thing later
     public Long checkSegmentForCrossing(LongPair corner1, LongPair corner2, Map<Long, LongPair> allCidCoords) {
         Long dist = null;
@@ -491,10 +707,10 @@ public class GeometryService {
     //Takes in cid, cidCrossLines, cidCoords, allCidCoords, allBends
     //Needs to output { (cid, Direc, cidx0), ... (cid, Direc, cidx3) }
     public Walk createEachDirection(Long cid, LongPair crossLines, LongPair crossCoords, Map<Long, LongPair> cidCoords, Map<Long, LongPair> bendCoords) {
-        /*
-        TwoXYPairs seg1 = orderCoords(verticesAndArrowsRepo.getCoordFromPt(crossLines.x()), verticesAndArrowsRepo.getCoordFromPt(getNextPoint(crossLines.x(), bendCoords.keySet(), "R")));
-        TwoXYPairs seg2 = orderCoords(verticesAndArrowsRepo.getCoordFromPt(crossLines.y()), verticesAndArrowsRepo.getCoordFromPt(getNextPoint(crossLines.y(), bendCoords.keySet(), "R")));
-        */
+
+        //TwoXYPairs seg1 = orderCoords(verticesAndArrowsRepo.getCoordFromPt(crossLines.x()), verticesAndArrowsRepo.getCoordFromPt(getNextPoint(crossLines.x(), bendCoords.keySet(), "R")));
+        //TwoXYPairs seg2 = orderCoords(verticesAndArrowsRepo.getCoordFromPt(crossLines.y()), verticesAndArrowsRepo.getCoordFromPt(getNextPoint(crossLines.y(), bendCoords.keySet(), "R")));
+
 
         TwoXYPairs seg1 = verticesAndArrowsRepo.getSegFromCrossingLine(crossLines.x(), getNextPoint(crossLines.x(), bendCoords.keySet(), "R"));
         TwoXYPairs seg2 = verticesAndArrowsRepo.getSegFromCrossingLine(crossLines.y(), getNextPoint(crossLines.y(), bendCoords.keySet(), "R"));
@@ -744,4 +960,5 @@ public class GeometryService {
         boundaries.addAll(walkOnDrawnLinesForBoundaries(segs));
         return boundaries;
     }
+     */
 }

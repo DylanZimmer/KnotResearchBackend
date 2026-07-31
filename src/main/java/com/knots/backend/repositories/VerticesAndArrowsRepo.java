@@ -28,7 +28,7 @@ public interface VerticesAndArrowsRepo extends JpaRepository<VerticesAndArrows, 
     LongPair findStrandCoordinatesFromStartPoint(@Param("startPoint") Long startPoint);
      */
 
-
+    /*
     @Query("""
         SELECT new com.knots.backend.models.dtos.TwoXYPairs(v1.strandX, v1.strandY, v2.strandX, v2.strandY)
         FROM VerticesAndArrows v1, VerticesAndArrows v2
@@ -45,4 +45,23 @@ public interface VerticesAndArrowsRepo extends JpaRepository<VerticesAndArrows, 
     """)
     LongPair getCoordFromPt(@Param("pt") Long pt);
 
+    @Query("""
+        SELECT MAX(point)
+        FROM VerticesAndArrows va
+    """)
+    Long getMaxPt();
+    */
+
+    @Query("""
+    SELECT new com.knots.backend.models.dtos.LongPair(va.strandX, va.strandY)
+    FROM VerticesAndArrows va
+    WHERE va.point = (
+        CASE
+            WHEN :pt = (SELECT MAX(v.point) FROM VerticesAndArrows v)
+            THEN 0
+            ELSE :pt + 1
+        END
+    )
+    """)
+    LongPair getNextCoords(@Param("pt") Long pt);
 }

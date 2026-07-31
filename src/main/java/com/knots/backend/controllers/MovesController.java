@@ -1,6 +1,7 @@
 package com.knots.backend.controllers;
 
 import com.knots.backend.models.dtos.DrawnLine;
+import com.knots.backend.models.dtos.LongPair;
 import com.knots.backend.models.dtos.MoveRequests.AddTwistRequest;
 import com.knots.backend.models.dtos.MoveRequests.AddPokeRequest;
 import com.knots.backend.models.dtos.Walk;
@@ -9,6 +10,7 @@ import com.knots.backend.services.InvariantService;
 import com.knots.backend.models.dtos.GeometricLine;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.util.Pair;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -62,8 +64,8 @@ public class MovesController {
     }
      */
 
-    @GetMapping("/getBoundaries")
-    public List<List<DrawnLine>> getBoundaries() {return geometryService.getBoundaries();}
+    @GetMapping("/getSegs")
+    public List<Pair<LongPair, LongPair>> getBoundaries() {return geometryService.getSegments();}
 
 
 
