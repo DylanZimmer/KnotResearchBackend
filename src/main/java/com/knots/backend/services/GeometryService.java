@@ -186,21 +186,36 @@ public class GeometryService {
 
     //************************************************************************************************
 
-    public void addCSpecCorner(Long x, Long y, List<Pair<LongPair, LongPair>> segs) {
-        Pair<LongPair, LongPair> toSplit = null;
-        for (Pair<LongPair, LongPair> seg : segs) {
-            if (seg.getFirst().x().equals(seg.getSecond().x()) && seg.getFirst().x().equals(x)) {
-                toSplit = seg;
-                break;
+    private Boolean pointInSeg(LongPair pt, Pair<LongPair, LongPair> seg) {
+        if (seg.getFirst().x().equals(seg.getSecond().x()) && seg.getFirst().x().equals(pt.x())) {
+            if (seg.getFirst().y() <= pt.y() && pt.y() <= seg.getSecond().y()
+            || seg.getSecond().y() <= pt.y() && pt.y() <= seg.getFirst().y()) {
+                return true;
             }
-            if (seg.getFirst().y().equals(seg.getSecond().y()) && seg.getFirst().y().equals(y)) {
-                toSplit = seg;
-                break;
+        } else if (seg.getFirst().y().equals(seg.getSecond().y()) && seg.getFirst().y().equals(pt.y())) {
+            if (seg.getFirst().x() <= pt.x() && pt.x() <= seg.getSecond().x()
+            || seg.getSecond().x() <= pt.x() && pt.x() <= seg.getFirst().x()) {
+                return true;
             }
         }
-        segs.remove(toSplit);
-        segs.add(Pair.of(new LongPair(toSplit.getFirst().x(), toSplit.getFirst().y()), new LongPair(x, y)));
-        segs.add(Pair.of(new LongPair(x, y), new LongPair(toSplit.getSecond().x(), toSplit.getSecond().y())));
+        return false;
+    }
+
+    public void addCSpecCorner(Long x, Long y, List<Pair<LongPair, LongPair>> segs) {
+        List<Pair<LongPair, LongPair>> toSplit = new ArrayList<>();
+        for (Pair<LongPair, LongPair> seg : segs) {
+            if (pointInSeg(new LongPair(x, y), seg)) {
+                toSplit.add(seg);
+            }
+        }
+        for (Pair<LongPair, LongPair> segToSplit : toSplit) {
+            segs.remove(segToSplit);
+            segs.add(Pair.of(new LongPair(segToSplit.getFirst().x(), segToSplit.getFirst().y()), new LongPair(x, y)));
+            segs.add(Pair.of(new LongPair(x, y), new LongPair(segToSplit.getSecond().x(), segToSplit.getSecond().y())));
+            if (toSplit.size() != 2) {
+                System.out.println("The crossing at (" + x + "," + y + ") didn't split exactly two segments");
+            }
+        }
     }
 
     public List<Pair<LongPair, LongPair>> organizeSegs(List<Pair<LongPair, LongPair>> segs) {
@@ -230,6 +245,278 @@ public class GeometryService {
         return organizeSegs(segs);
     }
 
+    public boolean isVertical(Pair<LongPair, LongPair> seg) {
+        if (seg.getFirst().x().equals(seg.getSecond().x())) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public List<Pair<LongPair, LongPair>> organizeBoundary(List<Pair<LongPair, LongPair>> boundary) {
+        List<Pair<LongPair, LongPair>> fullBoundary = new ArrayList<>(boundary);
+        List<Pair<LongPair, LongPair>> newBoundary = new ArrayList<>();
+        newBoundary.add(fullBoundary.get(0));
+        fullBoundary.remove(0);
+        while (!fullBoundary.isEmpty()) {
+            Pair<LongPair, LongPair> latestSeg = newBoundary.get(newBoundary.size() - 1);
+            boolean found = false;
+            Iterator<Pair<LongPair, LongPair>> it = fullBoundary.iterator();
+            while (it.hasNext()) {
+                Pair<LongPair, LongPair> seg = it.next();
+                if (latestSeg.getSecond().x().equals(seg.getFirst().x()) && latestSeg.getSecond().y().equals(seg.getFirst().y())) {
+                    newBoundary.add(seg);
+                    it.remove();
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                //throw new IllegalStateException("Boundary is not a continuous loop.");
+                return null;
+            }
+        }
+        return newBoundary;
+    }
+
+    private boolean segAContainedInB(Pair<LongPair,LongPair> segA, Pair<LongPair, LongPair> segB, Boolean BInAAllowed) {
+        boolean v;
+        if (isVertical(segA) == isVertical(segB)) {
+            if (isVertical(segA)) {
+                v = true;
+            } else {
+                v = false;
+            }
+        } else { throw new IllegalStateException("Segments don't match."); }
+        if (v) {
+            if (segB.getFirst().y() <= segA.getFirst().y() && segA.getSecond().y() <= segB.getSecond().y()) {
+                return true;
+            }
+            return BInAAllowed && segA.getFirst().y() <= segB.getFirst().y() && segB.getSecond().y() <= segA.getSecond().y();
+        } else {
+            if (segB.getFirst().x() <= segA.getFirst().x() && segA.getSecond().x() <= segB.getSecond().x()) {
+                return true;
+            }
+            return BInAAllowed && segA.getFirst().x() <= segB.getFirst().x() && segB.getSecond().x() <= segA.getSecond().x();
+        }
+    }
+
+    private Direction segInOutline(Pair<LongPair, LongPair> seg, List<Pair<LongPair, LongPair>> segs) {
+        boolean u_r_line = false;
+        boolean d_l_line = false;
+        boolean v = isVertical(seg);
+        if (v) {
+            for (Pair<LongPair, LongPair> checkSeg : segs) {
+                if (isVertical(checkSeg)) {
+                    if (checkSeg.getFirst().x() < seg.getFirst().x() && segAContainedInB(seg, checkSeg, true)) {
+                        d_l_line = true;
+                    }
+                    if (seg.getFirst().x() < checkSeg.getFirst().x() && segAContainedInB(seg, checkSeg, true)) {
+                        u_r_line = true;
+                    }
+                }
+
+            }
+        } else {
+            for (Pair<LongPair, LongPair> checkSeg : segs) {
+                if (!isVertical(checkSeg)) {
+                    if (checkSeg.getFirst().y() < seg.getFirst().y() && segAContainedInB(seg, checkSeg, true)) {
+                        d_l_line = true;
+                    }
+                    if (seg.getFirst().y() < checkSeg.getFirst().y() && segAContainedInB(seg, checkSeg, true)) {
+                        u_r_line = true;
+                    }
+                }
+            }
+        }
+        if (!u_r_line || !d_l_line) {
+            if (v) {
+                if (!u_r_line) {
+                    return Direction.R;
+                } else {
+                    return Direction.L;
+                }
+            } else {
+                if (!u_r_line) {
+                    return Direction.U;
+                } else {
+                    return Direction.D;
+                }
+            }
+        } else {
+            return null;
+        }
+    }
+
+    public Map<Pair<LongPair, LongPair>, Direction> getOutlineFromSegs(List<Pair<LongPair, LongPair>> segs) {
+        Map<Pair<LongPair, LongPair>, Direction> outline = new HashMap<>();
+        for (Pair<LongPair, LongPair> seg : segs) {
+            Direction noFurtherSegsDn = segInOutline(seg, segs);
+            if (noFurtherSegsDn != null) {
+                outline.put(seg, noFurtherSegsDn);
+            }
+        }
+        //return organizeBoundary(new ArrayList<>(outline.keySet()));
+        return outline;
+    }
+
+    private Boolean connectedSegPairs(Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> nextSegPair, Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> segPair) {
+        if (nextSegPair.getFirst().getFirst().equals(segPair.getFirst().getFirst())
+        || nextSegPair.getFirst().getSecond().equals(segPair.getFirst().getSecond())
+        || nextSegPair.getSecond().getFirst().equals(segPair.getSecond().getFirst())
+        || nextSegPair.getSecond().getSecond().equals(segPair.getSecond().getSecond())) {
+            return true;
+        }
+        return false;
+    }
+
+    private List<List<Pair<LongPair, LongPair>>> innerBoundariesFromOutline(Map<Pair<LongPair, LongPair>, Direction> outline, List<Pair<LongPair, LongPair>> remainingSegs) {
+        //First get pairs of segments, then pair them together
+        //After all pairs are together, I need to fit them together into boundaries
+        List<List<Pair<LongPair, LongPair>>> newBoundaries = new ArrayList<>();
+        List<Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>>> segPairs = new ArrayList<>();
+        for (Map.Entry<Pair<LongPair, LongPair>, Direction> entry : outline.entrySet()) {
+            int minDist = Integer.MAX_VALUE;
+            Pair<Pair<LongPair, LongPair>, Boolean> pairSeg = null; //boolean for outlineSegFirst
+            Pair<LongPair, LongPair> outlineSeg = entry.getKey();
+            for (Pair<LongPair, LongPair> seg : remainingSegs) {
+                if (isVertical(seg) && isVertical(outlineSeg)) {
+                    if (entry.getValue().equals(Direction.R)) {
+                        if (seg.getFirst().x() < outlineSeg.getFirst().x() && (segAContainedInB(seg, outlineSeg, true))) {
+                            int dist = (int) (outlineSeg.getFirst().x() - seg.getFirst().x());
+                            if (dist < minDist) {
+                                minDist = dist;
+                                pairSeg = Pair.of(seg, false);
+                            }
+                        }
+                    } else if (entry.getValue().equals(Direction.L)) {
+                        if (seg.getFirst().x() > outlineSeg.getFirst().x() && segAContainedInB(seg, outlineSeg, true)) {
+                            int dist = (int) (seg.getFirst().x() - outlineSeg.getFirst().x());
+                            if (dist < minDist) {
+                                minDist = dist;
+                                pairSeg = Pair.of(seg, true);
+                            }
+                        }
+                    }
+                } else if (!isVertical(seg) && !isVertical(entry.getKey())) {
+                    if (entry.getValue().equals(Direction.U)) {
+                        if (seg.getFirst().y() < outlineSeg.getFirst().y() && segAContainedInB(seg, outlineSeg, true)) {
+                            int dist = (int) (outlineSeg.getFirst().y() - seg.getFirst().y());
+                            if (dist < minDist) {
+                                minDist = dist;
+                                pairSeg = Pair.of(seg, false);
+                            }
+                        }
+                    } else if (entry.getValue().equals(Direction.D)) {
+                        if (seg.getFirst().y() > outlineSeg.getFirst().y() && segAContainedInB(seg, outlineSeg, true)) {
+                            int dist = (int) (seg.getFirst().y() - outlineSeg.getFirst().y());
+                            if (dist < minDist) {
+                                minDist = dist;
+                                pairSeg = Pair.of(seg, true);
+                            }
+                        }
+                    }
+                }
+            }
+            if (pairSeg == null) {
+                throw new IllegalStateException("No closest across segment");
+            } else {
+                if (pairSeg.getSecond()) {
+                    segPairs.add(Pair.of(outlineSeg, pairSeg.getFirst()));
+                } else {
+                    segPairs.add(Pair.of(pairSeg.getFirst(), outlineSeg));
+                }
+            }
+        }
+        while (!segPairs.isEmpty()) {
+            Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> nextSegPair = segPairs.get(0);
+            List<Pair<LongPair, LongPair>> newBoundary = new ArrayList<>();
+            newBoundary.add(nextSegPair.getFirst());
+            newBoundary.add(nextSegPair.getSecond());
+            Boolean isFullBoundary = false;
+            while (!isFullBoundary) {
+                if (isVertical(nextSegPair.getFirst())) {
+                    for (Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> segPair : segPairs) {
+                        if (!isVertical(segPair.getFirst())) {
+                            Boolean isConnected = connectedSegPairs(nextSegPair, segPair);
+                            if (isConnected) {
+                                newBoundary.add(segPair.getFirst());
+                                newBoundary.add(segPair.getSecond());
+                                List<Pair<LongPair, LongPair>> potentialNewBoundary = organizeBoundary(newBoundary);
+                                if (potentialNewBoundary != null) {
+                                    newBoundary = potentialNewBoundary;
+                                    isFullBoundary = true;
+                                    System.out.println("(((((((((((((****************&&&&&&&&&&&Completed Boundary : ");
+                                    System.out.println(newBoundary);
+                                    break;
+                                }
+                                nextSegPair = segPair;
+                            }
+                        }
+                        /*
+                        System.out.println("*****************newBoundary : ");
+                        System.out.println(newBoundary);
+                        */
+                    }
+                } else {
+                    for (Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> segPair : segPairs) {
+                        if (isVertical(segPair.getFirst())) {
+                            Boolean isConnected = connectedSegPairs(nextSegPair, segPair);
+                            if (isConnected) {
+                                newBoundary.add(segPair.getFirst());
+                                newBoundary.add(segPair.getSecond());
+                                List<Pair<LongPair, LongPair>> potentialNewBoundary = organizeBoundary(newBoundary);
+                                if (potentialNewBoundary != null) {
+                                    newBoundary = potentialNewBoundary;
+                                    isFullBoundary = true;
+                                    break;
+                                }
+                                nextSegPair = segPair;
+                            }
+                        }
+                    }
+                }
+            }
+            for (Pair<LongPair, LongPair> seg : newBoundary) {
+                Iterator<Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>>> it = segPairs.iterator();
+                while (it.hasNext()) {
+                    Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> segPair = it.next();
+                    if (segPair.getFirst().equals(seg) || segPair.getSecond().equals(seg)) {
+                        it.remove();
+                    }
+                }
+            }
+            newBoundaries.add(newBoundary);
+        }
+        return newBoundaries;
+    }
+
+    //public List<List<Pair<LongPair, LongPair>>> getBoundaries() {
+    public List<List<Pair<LongPair, LongPair>>> getBoundaries() {
+        List<List<Pair<LongPair, LongPair>>> boundaries = new ArrayList<>();
+        List<Pair<LongPair, LongPair>> remainingSegs = getSegments();
+        boolean outerBoundary = true;
+        while (!remainingSegs.isEmpty()) {
+            Map<Pair<LongPair, LongPair>, Direction> outline = getOutlineFromSegs(remainingSegs);
+            if (outerBoundary) {
+                boundaries.add(organizeBoundary(new ArrayList<>(outline.keySet())));
+                outerBoundary = false;
+            }
+            boundaries.addAll(innerBoundariesFromOutline(outline, remainingSegs));
+            for (Pair<LongPair, LongPair> seg : outline.keySet()) {
+                remainingSegs.remove(seg);
+            }
+            System.out.println("remainingSegs in loop : ");
+            System.out.println(remainingSegs);
+        }
+        return boundaries;
+    };
+
+
+
+    //Above is boundaries using the outside borders method
+    //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    /* Below is boundaries from the sweep method
     public Pair<LongPair, LongPair> longestSeg(List<Pair<LongPair, LongPair>> segs) {
         Long max = 0L;
         Pair<LongPair, LongPair> longestSeg = null;
@@ -390,7 +677,7 @@ public class GeometryService {
         }
         return boundaries;
     }
-
+    */
 
 
 

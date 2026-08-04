@@ -64,10 +64,8 @@ public class MovesController {
     }
      */
 
-    @GetMapping("/getSegs")
-    public List<Pair<LongPair, LongPair>> getBoundaries() {return geometryService.getSegments();}
-
-
-
+    //public void getBoundaries() {return geometryService.getBoundaries();}
+    @GetMapping("/getBoundaries")
+    public List<List<Pair<LongPair, LongPair>>> getBoundaries() {return geometryService.getBoundaries();}
 
 }
