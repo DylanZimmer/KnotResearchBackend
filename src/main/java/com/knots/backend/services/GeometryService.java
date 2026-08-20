@@ -183,9 +183,743 @@ public class GeometryService {
 
 
 
+    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<><
+    //Below is the 'fill out rectangles' idea
+    //Start with the most left-most line(s)
+    //Find the upper and lower bounds for the rectangle that the left-most line is the left-most on
+    //Define the right-side to start on the top or bottom segment that hits its next point first
+    //Repeat the process until the right line equals a segment that actually exists
+
+
+    public boolean isVertical(Pair<LongPair, LongPair> seg) {
+        if (seg.getFirst().x().equals(seg.getSecond().x())) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
+    private Boolean pointInSeg(LongPair pt, Pair<LongPair, LongPair> seg) {
+        if (seg.getFirst().x().equals(seg.getSecond().x()) && seg.getFirst().x().equals(pt.x())) {
+            if (seg.getFirst().y() <= pt.y() && pt.y() <= seg.getSecond().y()
+                    || seg.getSecond().y() <= pt.y() && pt.y() <= seg.getFirst().y()) {
+                return true;
+            }
+        } else if (seg.getFirst().y().equals(seg.getSecond().y()) && seg.getFirst().y().equals(pt.y())) {
+            if (seg.getFirst().x() <= pt.x() && pt.x() <= seg.getSecond().x()
+                    || seg.getSecond().x() <= pt.x() && pt.x() <= seg.getFirst().x()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void addCSpecCorner(Long x, Long y, List<Pair<LongPair, LongPair>> segs) {
+        List<Pair<LongPair, LongPair>> toSplit = new ArrayList<>();
+        for (Pair<LongPair, LongPair> seg : segs) {
+            if (pointInSeg(new LongPair(x, y), seg)) {
+                toSplit.add(seg);
+            }
+        }
+        for (Pair<LongPair, LongPair> segToSplit : toSplit) {
+            segs.remove(segToSplit);
+            segs.add(Pair.of(new LongPair(segToSplit.getFirst().x(), segToSplit.getFirst().y()), new LongPair(x, y)));
+            segs.add(Pair.of(new LongPair(x, y), new LongPair(segToSplit.getSecond().x(), segToSplit.getSecond().y())));
+            if (toSplit.size() != 2) { throw new IllegalStateException("The crossing at (" + x + "," + y + ") didn't split exactly two segments"); }
+        }
+    }
+
+    public List<Pair<LongPair, LongPair>> organizeEachSeg(List<Pair<LongPair, LongPair>> segs) {
+        List<Pair<LongPair, LongPair>> newSegs = new ArrayList<>();
+        for (Pair<LongPair, LongPair> seg : segs) {
+            if (seg.getFirst().x().equals(seg.getSecond().x()) ) {
+                if (seg.getFirst().y() > seg.getSecond().y()) {
+                    newSegs.add(Pair.of(seg.getSecond(), seg.getFirst()));
+                } else {
+                    newSegs.add(Pair.of(seg.getFirst(), seg.getSecond()));
+                }
+            } else if (seg.getFirst().y().equals(seg.getSecond().y())) {
+                if (seg.getFirst().x() > seg.getSecond().x()) {
+                    newSegs.add(Pair.of(seg.getSecond(), seg.getFirst()));
+                } else {
+                    newSegs.add(Pair.of(seg.getFirst(), seg.getSecond()));
+                }
+            } else { throw new IllegalStateException("Improper segment in organizeEachSeg"); }
+        }
+        return newSegs;
+    }
+
+    public List<Pair<LongPair, LongPair>> getSegments() {
+        List<Pair<LongPair, LongPair>> segs = new ArrayList<>();
+        List<CrossingSpecs> c_specs = crossingSpecsRepo.findAll();
+        List<VerticesAndArrows> vs_and_as = verticesAndArrowsRepo.findAll();
+        for (VerticesAndArrows va : vs_and_as) {
+            segs.add(Pair.of(new LongPair (va.getStrandX(), va.getStrandY()), verticesAndArrowsRepo.getNextCoords(va.getPoint())));
+        }
+        for (CrossingSpecs c : c_specs) {
+            addCSpecCorner(c.getCrossingX(), c.getCrossingY(), segs);
+        }
+        return organizeEachSeg(segs);
+    }
+
+    private Pair<List<Pair<LongPair, LongPair>>, List<Pair<LongPair, LongPair>>> splitSegsIntoVH(List<Pair<LongPair, LongPair>> segs) {
+        Pair<List<Pair<LongPair, LongPair>>, List<Pair<LongPair, LongPair>>> splitSegs = Pair.of(new ArrayList<>(), new ArrayList<>());
+        for (Pair<LongPair, LongPair> seg : segs) {
+            if (seg.getFirst().x().equals(seg.getSecond().x())) {
+                splitSegs.getFirst().add(seg);
+            } else if (seg.getFirst().y().equals(seg.getSecond().y())) {
+                splitSegs.getSecond().add(seg);
+            } else { throw new IllegalStateException("Illegal in splitSegsIntoVH"); }
+        }
+        return splitSegs;
+    }
+
+    private Pair<LongPair, LongPair> findLeftmostSeg(List<Pair<LongPair, LongPair>> vSegs) {
+        Long min_x = vSegs.get(0).getFirst().x();
+        Pair<LongPair, LongPair> leftmostSeg = vSegs.get(0);
+        for (Pair<LongPair, LongPair> vSeg : vSegs) {
+            Long check_x = vSeg.getFirst().x();
+            if (check_x < min_x) {
+                min_x = check_x;
+                leftmostSeg = vSeg;
+            }
+        }
+        return leftmostSeg;
+    }
+
+
+
+
+
+
+    /*
+    private Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> nextHSegsFromLeftmostVSeg(List<Pair<LongPair, LongPair>> hSegs, Pair<LongPair, LongPair> leftmostSeg) {
+        Long vSeg_x;
+        if (leftmostSeg.getFirst().x().equals(leftmostSeg.getSecond().x())) {
+            vSeg_x = leftmostSeg.getFirst().x();
+        } else { throw new IllegalStateException("The leftmost segment isn't vertical"); }
+        Pair<LongPair, LongPair> topSeg = null;
+        Pair<LongPair, LongPair> botSeg = null;
+        //Only checking the first coord in hSeg because the second will always be to the right of it
+        for (Pair<LongPair, LongPair> hSeg : hSegs) {
+            if (hSeg.getFirst().x().equals(vSeg_x)) {
+                if (hSeg.getFirst().y().equals(leftmostSeg.getFirst().y())) {
+                    if (topSeg == null) {
+                        topSeg = hSeg;
+                    } else { throw new IllegalStateException("Two segments matched the top"); }
+                } else if (hSeg.getFirst().y().equals(leftmostSeg.getSecond().y())) {
+                    if (botSeg == null) {
+                        botSeg = hSeg;
+                    } else { throw new IllegalStateException("Two segments matched the bottom."); }
+                }
+            }
+        }
+        System.out.println("Connected segs from the leftmost vertical segment");
+        System.out.println(leftmostSeg);
+        System.out.println(topSeg);
+        System.out.println(botSeg);
+        if (topSeg != null && botSeg != null) {
+            return (Pair.of(topSeg, botSeg));
+        } else { throw new IllegalStateException("Didn't match the top and bottom while getting the first horizontal segments from the leftomst vertical one."); }
+    }
+
+    private Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> nextVSegsFromLastHSegs(Pair<LongPair, LongPair> hSeg1, Pair<LongPair, LongPair> hSeg2, List<Pair<LongPair, LongPair>> vSegs) {
+        Long seg1_y;
+        Long seg2_y;
+        Pair<LongPair, LongPair> topConnectedSeg = null;
+        Pair<LongPair, LongPair> bottomConnectedSeg = null;
+        if (hSeg1.getFirst().y().equals(hSeg1.getSecond().y())) {
+            seg1_y = hSeg1.getFirst().y();
+        } else { throw new IllegalStateException("hSeg1 isn't horizontal"); }
+        if (hSeg2.getFirst().y().equals(hSeg2.getSecond().y())) {
+            seg2_y = hSeg2.getFirst().y();
+        } else { throw new IllegalStateException("hSeg2 isn't horizontal"); }
+        LongPair bottomConnectingPoint;
+        LongPair topConnectingPoint;
+        if (seg1_y < seg2_y) {
+            bottomConnectingPoint = hSeg1.getSecond();
+            topConnectingPoint = hSeg2.getSecond();
+        } else {
+            topConnectingPoint = hSeg1.getSecond();
+            bottomConnectingPoint = hSeg2.getSecond();
+        }
+        for (Pair<LongPair, LongPair> vSeg : vSegs) {
+            if (topConnectingPoint.equals(vSeg.getSecond())) {
+                topConnectedSeg = vSeg;
+            }
+            if (bottomConnectingPoint.equals(vSeg.getFirst())) {
+                bottomConnectedSeg = vSeg;
+            }
+        }
+        if (topConnectedSeg == null || bottomConnectedSeg == null) {
+            for (Pair<LongPair, LongPair> vSeg : vSegs) {
+                if (topConnectedSeg == null) {
+                    if (topConnectingPoint.equals(vSeg.getFirst())) {
+                        topConnectedSeg = vSeg;
+                    }
+                }
+                if (bottomConnectedSeg == null) {
+                    if (bottomConnectingPoint.equals(vSeg.getSecond())) {
+                        bottomConnectedSeg = vSeg;
+                    }
+                }
+                if (topConnectedSeg != null && bottomConnectedSeg != null) {
+                    break;
+                }
+            }
+        }
+        System.out.println("Connected segs in nextVSegsFromLastHSegs");
+        System.out.println(hSeg1);
+        System.out.println(hSeg2);
+        System.out.println(topConnectedSeg);
+        System.out.println(bottomConnectedSeg);
+        if (topConnectedSeg != null && bottomConnectedSeg != null) {
+            return (Pair.of(bottomConnectedSeg, topConnectedSeg));
+        } else { throw new IllegalStateException("Didn't match the top and bottom of the previous horizontals next vertical segments from the last horizontals."); }
+    }
+
+
+    private Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> nextHSegsFromLastVSegs(Pair<LongPair, LongPair> vSeg1, Pair<LongPair, LongPair> vSeg2, List<Pair<LongPair, LongPair>> hSegs) {
+        Long seg1_x;
+        Long seg2_x;
+        Pair<LongPair, LongPair> leftConnectedSeg = null;
+        Pair<LongPair, LongPair> rightConnectedSeg = null;
+        if (vSeg1.getFirst().x().equals(vSeg1.getSecond().x())) {
+            seg1_x = vSeg1.getFirst().x();
+        } else { throw new IllegalStateException("vSeg1 isn't vertical"); }
+        if (vSeg2.getFirst().x().equals(vSeg2.getSecond().x())) {
+            seg2_x = vSeg2.getFirst().x();
+        } else { throw new IllegalStateException("vSeg2 isn't vertical"); }
+        LongPair leftConnectingPoint;
+        LongPair rightConnectingPoint;
+        if (seg1_x < seg2_x) {
+            leftConnectingPoint = vSeg1.getSecond();
+            rightConnectingPoint = vSeg2.getSecond();
+        } else {
+            rightConnectingPoint = vSeg1.getSecond();
+            leftConnectingPoint = vSeg2.getSecond();
+        }
+        for (Pair<LongPair, LongPair> hSeg : hSegs) {
+            if (rightConnectingPoint.equals(hSeg.getSecond())) {
+                rightConnectedSeg = hSeg;
+            }
+            if (leftConnectingPoint.equals(hSeg.getFirst())) {
+                leftConnectedSeg = hSeg;
+            }
+        }
+        if (rightConnectedSeg == null || leftConnectedSeg == null) {
+            for (Pair<LongPair, LongPair> hSeg : hSegs) {
+                if (rightConnectedSeg == null) {
+                    if (rightConnectingPoint.equals(hSeg.getFirst())) {
+                        rightConnectedSeg = hSeg;
+                    }
+                }
+                if (leftConnectedSeg == null) {
+                    if (leftConnectingPoint.equals(hSeg.getSecond())) {
+                        leftConnectedSeg = hSeg;
+                    }
+                }
+                if (rightConnectedSeg != null && leftConnectedSeg != null) {
+                    break;
+                }
+            }
+        }
+        System.out.println("Connected segs in nextHSegsFromLastVSegs");
+        System.out.println(vSeg1);
+        System.out.println(vSeg2);
+        System.out.println(leftConnectedSeg);
+        System.out.println(rightConnectedSeg);
+        if (rightConnectedSeg != null && leftConnectedSeg != null) {
+            return (Pair.of(leftConnectedSeg, rightConnectedSeg));
+        } else { throw new IllegalStateException("Didn't match the left and right while getting the first vertical segments from the last horizontals."); }
+    }
+
+    //Start by getting the leftmost segment, then the boundary should start at the top point and stop at the bottom one
+    //calls will just be getHSegFromVSeg and vice versa and will include a flag for top/bot l/r
+    //A top line should look for a line connecting down, a right should look
+    //But what is a top line???
+    //A top line is a horizontal line that connects to the top point of the vertical line to the left of it
+    //Horizontal lines should bias toward going the same way as the line directly before it
+
+    private Pair<LongPair, LongPair> nextHSegHelper(LongPair pt, List<Pair<LongPair, LongPair>> hSegs, Boolean probablyGoingRight) {
+        if (probablyGoingRight) {
+            for (Pair<LongPair, LongPair> hSeg : hSegs) {
+                if (hSeg.getFirst().equals(pt)) {
+                    return hSeg;
+                }
+            }
+        } else {
+            for (Pair<LongPair, LongPair> hSeg : hSegs) {
+                if (hSeg.getSecond().equals(pt)) {
+                    return hSeg;
+                }
+            }
+        }
+        return null;
+    }
+
+    private Pair<Pair<LongPair, LongPair>, Boolean> getNextHSeg(LongPair pt, List<Pair<LongPair, LongPair>> hSegs, Boolean probablyGoingRight) {
+        boolean changeExpectedDirection = false;
+        Pair<LongPair, LongPair> newHSeg;
+        newHSeg = nextHSegHelper(pt, hSegs, probablyGoingRight);
+        if (newHSeg == null) {
+            newHSeg = nextHSegHelper(pt, hSegs, !probablyGoingRight);
+            if (newHSeg != null) {
+                changeExpectedDirection = true;
+            }
+        }
+        return Pair.of(newHSeg, changeExpectedDirection);
+    }
+
+    private Pair<LongPair, LongPair> nextVSegHelper(LongPair pt, List<Pair<LongPair, LongPair>> vSegs, Boolean topSeg) {
+        if (topSeg) {
+            for (Pair<LongPair, LongPair> vSeg : vSegs) {
+                if (vSeg.getSecond().equals(pt)) {
+                    return vSeg;
+                }
+            }
+        } else {
+            for (Pair<LongPair, LongPair> vSeg : vSegs) {
+                if (vSeg.getFirst().equals(pt)) {
+                    return vSeg;
+                }
+            }
+        }
+        return null;
+    }
+
+    private Pair<LongPair, LongPair> getNextVSeg(LongPair pt, List<Pair<LongPair, LongPair>> vSegs, Boolean topSeg) {
+        Pair<LongPair, LongPair> newVSeg;
+        newVSeg = nextHSegHelper(pt, vSegs, topSeg);
+        if (newVSeg == null) {
+            newVSeg = nextHSegHelper(pt, vSegs, !topSeg);
+        }
+        return newVSeg;
+    }
+    */
+
+
+    private boolean outerContainVertical(Pair<LongPair, LongPair> vSeg1, Pair<LongPair, LongPair> vSeg2) {
+        if (vSeg1.getFirst().y() <= vSeg2.getFirst().y() && vSeg1.getSecond().y() <= vSeg2.getSecond().y()) {
+            return true;
+        }
+        if (vSeg2.getFirst().y() <= vSeg1.getFirst().y() && vSeg2.getSecond().y() <= vSeg1.getSecond().y()) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean outerContainHorizontal(Pair<LongPair, LongPair> hSeg1, Pair<LongPair, LongPair> hSeg2) {
+        if (hSeg1.getFirst().x() <= hSeg2.getFirst().x() && hSeg1.getSecond().x() <= hSeg2.getSecond().x()) {
+            return true;
+        }
+        if (hSeg2.getFirst().x() <= hSeg1.getFirst().x() && hSeg2.getSecond().x() <= hSeg1.getSecond().x()) {
+            return true;
+        }
+        return false;
+    }
+
+    private List<Pair<LongPair, LongPair>> getOuterBoundary(List<Pair<LongPair, LongPair>> vSegs, List<Pair<LongPair, LongPair>> hSegs) {
+        List<Pair<LongPair, LongPair>> outerBoundary = new ArrayList<>();
+        for (int i = 0; i < vSegs.size(); i++) {
+            boolean moreLeftSegFound = false;
+            boolean moreRightSegFound = false;
+            Pair<LongPair, LongPair> vSeg = vSegs.get(i);
+            for (int j = i + 1; j < vSegs.size(); j++) {
+                Pair<LongPair, LongPair> nextVSeg = vSegs.get(j);
+                if (outerContainVertical(vSeg, nextVSeg)) {
+                    if (nextVSeg.getFirst().x() < vSeg.getFirst().x()) {
+                        moreLeftSegFound = true;
+                    }
+                    if (nextVSeg.getFirst().x() > vSeg.getFirst().x()) {
+                        moreRightSegFound = true;
+                    }
+                }
+                if (moreLeftSegFound && moreRightSegFound) {
+                    break;
+                }
+            }
+            if (!moreLeftSegFound || !moreRightSegFound) {
+                outerBoundary.add(vSeg);
+            }
+        }
+        for (int i = 0; i < hSegs.size(); i++) {
+            boolean moreDownSegFound = false;
+            boolean moreUpSegFound = false;
+            Pair<LongPair, LongPair> hSeg = hSegs.get(i);
+            for (int j = i + 1; j < hSegs.size(); j++) {
+                Pair<LongPair, LongPair> nextHSeg = hSegs.get(j);
+                if (outerContainHorizontal(hSeg, nextHSeg)) {
+                    if (nextHSeg.getFirst().y() < hSeg.getFirst().y()) {
+                        moreDownSegFound = true;
+                    }
+                    if (nextHSeg.getFirst().x() > hSeg.getFirst().x()) {
+                        moreUpSegFound = true;
+                    }
+                }
+                if (moreDownSegFound && moreUpSegFound) {
+                    break;
+                }
+            }
+            if (!moreDownSegFound || !moreUpSegFound) {
+                outerBoundary.add(hSeg);
+            }
+        }
+        return outerBoundary;
+    }
+
+    private void updateSegDicts(Map<Pair<LongPair, LongPair>, Long> vSegsDict, Map<Pair<LongPair, LongPair>, Long> hSegsDict, List<Pair<LongPair, LongPair>> boundary) {
+        for (Pair<LongPair, LongPair> seg : boundary) {
+            if (isVertical(seg)) {
+                vSegsDict.merge(seg, 1L, Long::sum);
+            } else {
+                hSegsDict.merge(seg, 1L, Long::sum);
+            }
+        }
+    }
+
+    private boolean allSegsUsed(Map<Pair<LongPair, LongPair>, Long> vSegsDict, Map<Pair<LongPair, LongPair>, Long> hSegsDict) {
+        for (Long used : vSegsDict.values()) {
+            if (used < 2) { return false; }
+        }
+        for (Long used : hSegsDict.values()) {
+            if (used < 2) { throw new IllegalStateException("Horizontal segments remain with no remaining vertical segments"); }
+        }
+        return true;
+    }
+
+    private List<Pair<LongPair, LongPair>> remainingSegsFromDict(Map<Pair<LongPair, LongPair>, Long> segsDict) {
+        List<Pair<LongPair, LongPair>> segs = new ArrayList<>();
+        for (Map.Entry<Pair<LongPair, LongPair>, Long> entry : segsDict.entrySet()) {
+            if (entry.getValue() < 2) {
+                segs.add(entry.getKey());
+            }
+        }
+        return segs;
+    }
+
+    private Pair<LongPair, LongPair> getFirstHSeg(List<Pair<LongPair, LongPair>> hSegs, LongPair lastPt) {
+        for (Pair<LongPair, LongPair> hSeg : hSegs) {
+            if (hSeg.getFirst().equals(lastPt)) {
+                return hSeg;
+            }
+        }
+        return null;
+    }
+
+    private List<Pair<LongPair, LongPair>> getNextBoundaryLineUpToX(List<Pair<LongPair, LongPair>> vSegs, List<Pair<LongPair, LongPair>> hSegs, LongPair lastPt, Long xStop, Boolean isTopOg) {
+        List<Pair<LongPair, LongPair>> nextLine = new ArrayList<>();
+        boolean isTop = isTopOg;
+        boolean biasVBackwards = false;
+        while (lastPt.x() < xStop) {
+            boolean foundSeg = false;
+            if (biasVBackwards) {
+                isTop = !isTop;
+                biasVBackwards = false;
+            }
+            for (Pair<LongPair, LongPair> vSeg : vSegs) {
+                if (isTop && vSeg.getSecond().equals(lastPt) || !isTop && vSeg.getFirst().equals(lastPt)) {
+                    nextLine.add(vSeg);
+                    if (vSeg.getSecond().equals(lastPt)) {
+                        lastPt = vSeg.getFirst();
+                    } else {
+                        lastPt = vSeg.getSecond();
+                    }
+                    foundSeg = true;
+                    break;
+                }
+            }
+            if (!foundSeg) {
+                for (Pair<LongPair, LongPair> vSeg : vSegs) {
+                    if (vSeg.getSecond().equals(lastPt)) {
+                        nextLine.add(Pair.of(vSeg.getSecond(), vSeg.getFirst()));
+                        lastPt = vSeg.getFirst();
+                        break;
+                    }
+                }
+            }
+            foundSeg = false;
+            for (Pair<LongPair, LongPair> hSeg : hSegs) {
+                if (hSeg.getFirst().equals(lastPt)) {
+                    nextLine.add(hSeg);
+                    lastPt = hSeg.getSecond();
+                    foundSeg = true;
+                    break;
+                }
+            }
+            if (!foundSeg) {
+                for (Pair<LongPair, LongPair> hSeg : hSegs) {
+                    if (hSeg.getSecond().equals(lastPt)) {
+                        nextLine.add(Pair.of(hSeg.getSecond(), hSeg.getFirst()));
+                        lastPt = hSeg.getFirst();
+                        biasVBackwards = true;
+                        break;
+                    }
+                }
+            }
+            isTop = isTopOg;
+        }
+        return nextLine;
+    }
+
+    private List<Pair<LongPair, LongPair>> nextBoundary(List<Pair<LongPair, LongPair>> vSegs, List<Pair<LongPair, LongPair>> hSegs) {
+        boolean boundaryComplete = false;
+        List<Pair<LongPair, LongPair>> boundary = new ArrayList<>();
+        Pair<LongPair, LongPair> leftmostSeg = findLeftmostSeg(vSegs);
+        boundary.add(leftmostSeg);
+        List<Pair<LongPair, LongPair>> topPart = new ArrayList<>();
+        List<Pair<LongPair, LongPair>> botPart = new ArrayList<>();
+        topPart.add(getFirstHSeg(hSegs, leftmostSeg.getSecond()));
+        botPart.add(getFirstHSeg(hSegs, leftmostSeg.getFirst()));
+        Long topXStop = 0L;
+        Long botXStop = 0L;
+        if (topPart.get(0).getSecond().x().equals(botPart.get(0).getSecond().x())) {
+            for (Pair<LongPair, LongPair> vSeg : vSegs) {
+                if (topPart.get(0).getSecond().equals(vSeg.getSecond()) && botPart.get(0).getSecond().equals(vSeg.getFirst())) {
+                    boundary.addAll(topPart);
+                    boundary.addAll(botPart);
+                    boundary.add(vSeg);
+                    return boundary;
+                }
+            }
+        } else if (topPart.get(0).getSecond().x() < botPart.get(0).getSecond().x()) {
+            topXStop = botPart.get(0).getSecond().x();
+        } else {
+            botXStop = topPart.get(0).getSecond().x();
+        }
+        LongPair topSegConnectPt = topPart.get(0).getSecond();
+        LongPair botSegConnectPt = botPart.get(0).getSecond();
+        //Need to get topXStop and botXStop - should I do one outside, or move it to the top of the while loop?
+        while (!boundaryComplete) {
+            Pair<LongPair, LongPair> topEndingHSeg = topPart.get(topPart.size() - 1);
+            Pair<LongPair, LongPair> botEndingHSeg = botPart.get(botPart.size() - 1);
+            if (topEndingHSeg.getSecond().x() < topXStop) {
+                topPart.addAll(getNextBoundaryLineUpToX(vSegs, hSegs, topSegConnectPt, topXStop, true));
+                topEndingHSeg = topPart.get(topPart.size() - 1);
+            }
+            if (botEndingHSeg.getSecond().x() < botXStop) {
+                botPart.addAll(getNextBoundaryLineUpToX(vSegs, hSegs, botSegConnectPt, botXStop, false));
+                botEndingHSeg = botPart.get(botPart.size() - 1);
+            }
+            if (topEndingHSeg.getSecond().x().equals(botEndingHSeg.getSecond().x())) {
+                for (Pair<LongPair, LongPair> vSeg : vSegs) {
+                    System.out.println("Hit the equals that should end the boundary");
+                    System.out.println("vSeg :  " + vSeg);
+                    System.out.println("topEndingHSeg : " + topEndingHSeg);
+                    System.out.println("botEndingHSeg : " + botEndingHSeg);
+                    if (vSeg.getFirst().x().equals(topEndingHSeg.getSecond().x())) {//choice of x wlog
+                        if (vSeg.getFirst().equals(botEndingHSeg.getSecond()) && vSeg.getSecond().equals(topEndingHSeg.getSecond())) {
+                            boundary.add(vSeg);
+                            boundaryComplete = true;
+                            break;
+                        }
+                    }
+                }
+                if (!boundaryComplete) {
+                    throw new IllegalStateException("This one seems to be illegal");
+                }
+                boundary.addAll(topPart);
+                boundary.addAll(botPart);
+                break;
+            }
+            if (topEndingHSeg.getSecond().x().equals(botEndingHSeg.getSecond().x())) {
+                throw new IllegalStateException("Hit non-equal lines with the same x value");
+            } else if (topEndingHSeg.getSecond().x() < botEndingHSeg.getSecond().x()) {
+                topXStop = botEndingHSeg.getSecond().x();
+                topSegConnectPt = topEndingHSeg.getSecond();
+            } else {
+                botXStop = topEndingHSeg.getSecond().x();
+                botSegConnectPt = botEndingHSeg.getSecond();
+            }
+        }
+        return boundary;
+    }
+
+    //Get the leftmost seg
+    //Go off of the top and bottom once, check which gets to a further x off of the first hSeg
+    //Freeze the further one and catch the other up
+    //If the one that's behind catches up on the same x check for a connecting segment, otherwise
+    //Continue going with the top line looking right biasing down
+    //That way I don't have to deal with changing the bias for the hSegs
+    //Vertical is down to up
+    //Horizontal is left to right
+    public List<List<Pair<LongPair, LongPair>>> getBoundaries() {
+        List<List<Pair<LongPair, LongPair>>> boundaries = new ArrayList<>();
+        List<Pair<LongPair, LongPair>> segs = getSegments();
+        Pair<List<Pair<LongPair, LongPair>>, List<Pair<LongPair, LongPair>>> segsSplit = splitSegsIntoVH(segs);
+        Map<Pair<LongPair, LongPair>, Long> vSegsDict = new HashMap<>();
+        Map<Pair<LongPair, LongPair>, Long> hSegsDict = new HashMap<>();
+        for (Pair<LongPair, LongPair> vSeg : segsSplit.getFirst()) {
+            vSegsDict.put(vSeg, 0L);
+        }
+        for (Pair<LongPair, LongPair> hSeg : segsSplit.getSecond()) {
+            hSegsDict.put(hSeg, 0L);
+        }
+        //Can rewrite outerBoundary logic to get the boundary the same way with the opposite biases I think
+        List<Pair<LongPair, LongPair>> outerBoundary = getOuterBoundary(new ArrayList<>(vSegsDict.keySet()), new ArrayList<>(hSegsDict.keySet()));
+        boundaries.add(outerBoundary);
+        updateSegDicts(vSegsDict, hSegsDict, outerBoundary);
+        boolean boundariesFound = false;
+        while (!boundariesFound) {
+            List<Pair<LongPair, LongPair>> vSegs = remainingSegsFromDict(vSegsDict);
+            List<Pair<LongPair, LongPair>> hSegs = remainingSegsFromDict(hSegsDict);
+            List<Pair<LongPair, LongPair>> nextBoundary = nextBoundary(vSegs, hSegs);
+            boundaries.add(nextBoundary);
+            updateSegDicts(vSegsDict, hSegsDict, nextBoundary);
+            if (allSegsUsed(vSegsDict, hSegsDict)) {
+                boundariesFound = true;
+            }
+        }
+        return boundaries;
+    }
+
+
+
+
+
+
+
+
+    /*
+    //Vertical is down to up
+    //Horizontal is left to right
+    private List<Pair<LongPair, LongPair>> nextBoundaryLessOld(List<Pair<LongPair, LongPair>> vSegsInit, List<Pair<LongPair, LongPair>> hSegsInit) {
+        List<Pair<LongPair, LongPair>> vSegs = vSegsInit;
+        List<Pair<LongPair, LongPair>> hSegs = hSegsInit;
+        List<Pair<LongPair, LongPair>> nextBoundary = new ArrayList<>();
+        Pair<LongPair, LongPair> leftmostSeg = findLeftmostSeg(vSegs);
+        Pair<LongPair, LongPair> nextVSeg = leftmostSeg;
+        boolean probablyGoingRight = true;
+        boolean connectedOnTop = false;
+        boolean boundaryComplete = false;
+        while (!boundaryComplete) {
+            //Need to give it the first entry of nextVSeg sometimes
+            //
+            Pair<Pair<LongPair, LongPair>, Boolean> nextHSegWSwitchBool = getNextHSeg(nextVSeg.getSecond(), hSegs, probablyGoingRight);
+            Pair<LongPair, LongPair> nextHSeg = nextHSegWSwitchBool.getFirst();
+            if (nextHSegWSwitchBool.getSecond()) {
+                probablyGoingRight = !probablyGoingRight;
+            }
+            if (probablyGoingRight) {   //Right check?
+                getNextVSeg(nextHSeg.getSecond(), hSegs);
+            } else {
+                getNextVSeg(nextHSeg.getFirst(), hSegs);
+            }
+
+        return nextBoundary;
+    }
+
+
+    private List<Pair<LongPair, LongPair>> nextBoundaryOld(List<Pair<LongPair, LongPair>> vSegsInit, List<Pair<LongPair, LongPair>> hSegsInit) {
+        List<Pair<LongPair, LongPair>> vSegs = vSegsInit;
+        List<Pair<LongPair, LongPair>> hSegs = hSegsInit;
+        List<Pair<LongPair, LongPair>> nextBoundary = new ArrayList<>();
+        Pair<LongPair, LongPair> leftmostSeg = findLeftmostSeg(vSegs);
+        nextBoundary.add(leftmostSeg);
+        Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> nextHSegs = nextHSegsFromLeftmostVSeg(hSegs, leftmostSeg);
+        nextBoundary.add(nextHSegs.getFirst());
+        nextBoundary.add(nextHSegs.getSecond());
+        boolean boundaryComplete = false;
+        while (!boundaryComplete) {
+            Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> nextVSegs = nextVSegsFromLastHSegs(nextHSegs.getFirst(), nextHSegs.getSecond(), vSegs);
+            if (nextVSegs.getFirst().equals(nextVSegs.getSecond())) {
+                nextBoundary.add(nextVSegs.getFirst());
+                boundaryComplete = true;
+                break;
+            }
+            nextBoundary.add(nextVSegs.getFirst());
+            nextBoundary.add(nextVSegs.getSecond());
+
+            nextHSegs = nextHSegsFromLastVSegs(nextVSegs.getFirst(), nextVSegs.getSecond(), hSegs);
+            nextBoundary.add(nextHSegs.getFirst());
+            nextBoundary.add(nextHSegs.getSecond());
+            System.out.println("nextVSegs   : " + nextVSegs);
+            System.out.println("nextHSegs   : " + nextHSegs);
+            System.out.println("nextBoundary   : " + nextBoundary);
+            vSegs.remove(nextVSegs.getFirst());
+            vSegs.remove(nextVSegs.getSecond());
+            hSegs.remove(nextHSegs.getFirst());
+            hSegs.remove(nextHSegs.getSecond());
+        }
+        return nextBoundary;
+    }
+
+
+    //I can go through the vertical segs and make sure each appears twice. Then I can assert check that each horizontal does too
+    public List<List<Pair<LongPair, LongPair>>> getBoundaries() {
+        List<List<Pair<LongPair, LongPair>>> boundaries = new ArrayList<>();
+        List<Pair<LongPair, LongPair>> segs = getSegments();
+        Pair<List<Pair<LongPair, LongPair>>, List<Pair<LongPair, LongPair>>> segsSplit = splitSegsIntoVH(segs);
+        Map<Pair<LongPair, LongPair>, Long> vSegsDict = new HashMap<>();
+        Map<Pair<LongPair, LongPair>, Long> hSegsDict = new HashMap<>();
+        for (Pair<LongPair, LongPair> vSeg : segsSplit.getFirst()) {
+            vSegsDict.put(vSeg, 0L);
+        }
+        for (Pair<LongPair, LongPair> hSeg : segsSplit.getSecond()) {
+            hSegsDict.put(hSeg, 0L);
+        }
+        List<Pair<LongPair, LongPair>> outerBoundary = getOuterBoundary(new ArrayList<>(vSegsDict.keySet()), new ArrayList<>(hSegsDict.keySet()));
+        boundaries.add(outerBoundary);
+        updateSegDicts(vSegsDict, hSegsDict, outerBoundary);
+        boolean boundariesFound = false;
+        while (!boundariesFound) {
+            List<Pair<LongPair, LongPair>> vSegs = remainingSegsFromDict(vSegsDict);
+            System.out.println("Hit vSegs :   " + vSegs);
+            List<Pair<LongPair, LongPair>> hSegs = remainingSegsFromDict(hSegsDict);
+            System.out.println("Hit hSegs :   " + hSegs);
+            List<Pair<LongPair, LongPair>> nextBoundary = nextBoundary(vSegs, hSegs);
+            System.out.println("Next Boundary");
+            System.out.println(nextBoundary);
+            System.out.println("Next vSegsDict");
+            System.out.println(vSegsDict);
+            System.out.println("Next hSegsDict");
+            System.out.println(hSegsDict);
+            if (boundaries.contains(nextBoundary)) {
+                System.out.println("DOUBLE CONTAINS");
+                boundariesFound = true;
+                break;
+            }
+            boundaries.add(nextBoundary);
+            updateSegDicts(vSegsDict, hSegsDict, nextBoundary);
+            boundariesFound = allSegsUsed(vSegsDict, hSegsDict);
+        }
+        return boundaries;
+    }
+    */
+
+
+
+    //*************************************************************************************************
+    //Below is back to walks - I want a full list of
+    /*
+    - Get a partition of walks. Go through, starting at C0, splitting in all 4 directions.
+    Keep a list with all walks. Whenever a loop is closed, put that in its own list. Do that until all loops
+    are closed.
+    - This is list of borders that contain one or more boundary. One of them contains the full inside and the
+    outside. But instead of determining which it will probably be easier to just calculate the outline as
+    done below for the space outside the knot
+    - Clean up the list of borders. Check for where borders get cut off. I need to deal with the problem of
+    the outer border. If I'm asking it to find all inner boundaries from it recursively that's the entire
+    problem and there's no need for anything else. If I'm only finding the first border within it then what's the
+    analagous to some boundary that splits two borders?
+
+
+
+
+    It might just straight up be a better idea to do the recursive outline thing. First I'm going to
+
+
+    Maybe recursive from the smallest boundaries out. Think about the next boundary out in terms of connections,
+    do the horizontal and vertical line belong to the same corner? What's the analagous for a crossing? And then
+    for chains of such. Build the boundaries out until I find the outer border
+    */
+
+
 
     //************************************************************************************************
-
+    //Below is the method where I find the outer border then work inwards
+    /*
     private Boolean pointInSeg(LongPair pt, Pair<LongPair, LongPair> seg) {
         if (seg.getFirst().x().equals(seg.getSecond().x()) && seg.getFirst().x().equals(pt.x())) {
             if (seg.getFirst().y() <= pt.y() && pt.y() <= seg.getSecond().y()
@@ -453,10 +1187,6 @@ public class GeometryService {
                                 nextSegPair = segPair;
                             }
                         }
-                        /*
-                        System.out.println("*****************newBoundary : ");
-                        System.out.println(newBoundary);
-                        */
                     }
                 } else {
                     for (Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> segPair : segPairs) {
@@ -511,9 +1241,7 @@ public class GeometryService {
         }
         return boundaries;
     };
-
-
-
+    */
     //Above is boundaries using the outside borders method
     //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     /* Below is boundaries from the sweep method
