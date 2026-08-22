@@ -29,8 +29,10 @@ public class MovesController {
         Long diagramId = geometryService.getDiagramIdByKnotId(knotId);
         geometryService.clearCurrentGeometry();
         geometryService.copyGeometryByDiagramId(diagramId);
+        /*
         invariantService.clearCurrentFullNotation();
         invariantService.copyFullNotationByKnotId(knotId);
+        */
     }
 
     @PostMapping("mirror")

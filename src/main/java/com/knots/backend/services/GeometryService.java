@@ -569,12 +569,19 @@ public class GeometryService {
         return outerBoundary;
     }
 
+    private Pair<LongPair, LongPair> normalizeSeg(Pair<LongPair, LongPair> seg) {
+        if (seg.getFirst().x() > seg.getSecond().x() || seg.getFirst().y() > seg.getSecond().y()) {
+            return Pair.of(seg.getSecond(), seg.getFirst());
+        }
+        return seg;
+    }
+
     private void updateSegDicts(Map<Pair<LongPair, LongPair>, Long> vSegsDict, Map<Pair<LongPair, LongPair>, Long> hSegsDict, List<Pair<LongPair, LongPair>> boundary) {
         for (Pair<LongPair, LongPair> seg : boundary) {
             if (isVertical(seg)) {
-                vSegsDict.merge(seg, 1L, Long::sum);
+                vSegsDict.merge(normalizeSeg(seg), 1L, Long::sum);
             } else {
-                hSegsDict.merge(seg, 1L, Long::sum);
+                hSegsDict.merge(normalizeSeg(seg), 1L, Long::sum);
             }
         }
     }
@@ -605,6 +612,12 @@ public class GeometryService {
                 return hSeg;
             }
         }
+        /*
+        System.out.println("Inside getFirstHSeg");
+        System.out.println("lastPt : " + lastPt);
+        System.out.println("hSegs : " + hSegs);
+        System.out.println("ENDING IN gFHS");
+        */
         return null;
     }
 
@@ -612,7 +625,7 @@ public class GeometryService {
         List<Pair<LongPair, LongPair>> nextLine = new ArrayList<>();
         boolean isTop = isTopOg;
         boolean biasVBackwards = false;
-        while (lastPt.x() < xStop) {
+        while (lastPt.x() <= xStop) {
             boolean foundSeg = false;
             if (biasVBackwards) {
                 isTop = !isTop;
@@ -672,8 +685,15 @@ public class GeometryService {
         List<Pair<LongPair, LongPair>> botPart = new ArrayList<>();
         topPart.add(getFirstHSeg(hSegs, leftmostSeg.getSecond()));
         botPart.add(getFirstHSeg(hSegs, leftmostSeg.getFirst()));
-        Long topXStop = 0L;
-        Long botXStop = 0L;
+        Long topXStop = 1L;
+        Long botXStop = 1L;
+        /*
+        System.out.println("leftmostSeg : " + leftmostSeg);
+        System.out.println("topPart" + topPart);
+        System.out.println("botPart" + botPart);
+        System.out.println("vSegs" + vSegs);
+        System.out.println("hSegs" + hSegs);
+        */
         if (topPart.get(0).getSecond().x().equals(botPart.get(0).getSecond().x())) {
             for (Pair<LongPair, LongPair> vSeg : vSegs) {
                 if (topPart.get(0).getSecond().equals(vSeg.getSecond()) && botPart.get(0).getSecond().equals(vSeg.getFirst())) {
@@ -690,7 +710,11 @@ public class GeometryService {
         }
         LongPair topSegConnectPt = topPart.get(0).getSecond();
         LongPair botSegConnectPt = botPart.get(0).getSecond();
-        //Need to get topXStop and botXStop - should I do one outside, or move it to the top of the while loop?
+        /*
+        System.out.println("leftmostSeg : " + leftmostSeg);
+        System.out.println("topSegConnectPt" + topSegConnectPt);
+        System.out.println("botSegConnectPt" + botSegConnectPt);
+        */
         while (!boundaryComplete) {
             Pair<LongPair, LongPair> topEndingHSeg = topPart.get(topPart.size() - 1);
             Pair<LongPair, LongPair> botEndingHSeg = botPart.get(botPart.size() - 1);
@@ -704,10 +728,12 @@ public class GeometryService {
             }
             if (topEndingHSeg.getSecond().x().equals(botEndingHSeg.getSecond().x())) {
                 for (Pair<LongPair, LongPair> vSeg : vSegs) {
+                    /*
                     System.out.println("Hit the equals that should end the boundary");
                     System.out.println("vSeg :  " + vSeg);
                     System.out.println("topEndingHSeg : " + topEndingHSeg);
                     System.out.println("botEndingHSeg : " + botEndingHSeg);
+                    */
                     if (vSeg.getFirst().x().equals(topEndingHSeg.getSecond().x())) {//choice of x wlog
                         if (vSeg.getFirst().equals(botEndingHSeg.getSecond()) && vSeg.getSecond().equals(topEndingHSeg.getSecond())) {
                             boundary.add(vSeg);
@@ -764,7 +790,17 @@ public class GeometryService {
         while (!boundariesFound) {
             List<Pair<LongPair, LongPair>> vSegs = remainingSegsFromDict(vSegsDict);
             List<Pair<LongPair, LongPair>> hSegs = remainingSegsFromDict(hSegsDict);
+            System.out.println("&&&&&&&&&&&&&&&&&&&&& hSegs : " + hSegs);
             List<Pair<LongPair, LongPair>> nextBoundary = nextBoundary(vSegs, hSegs);
+            /*
+            System.out.println("nextBoundary : " + nextBoundary);
+            System.out.println("vSegs Dict : " + vSegsDict);
+            System.out.println("vSegs : " + vSegs);
+            System.out.println("hSegs Dict : " + hSegsDict);
+            System.out.println("hSegs : " + hSegs);
+            */
+            System.out.println("Next Boundary");
+            System.out.println(nextBoundary);
             boundaries.add(nextBoundary);
             updateSegDicts(vSegsDict, hSegsDict, nextBoundary);
             if (allSegsUsed(vSegsDict, hSegsDict)) {
