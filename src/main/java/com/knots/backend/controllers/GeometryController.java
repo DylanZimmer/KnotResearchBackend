@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/knots")
+@RequestMapping("/api/geom")
 @RequiredArgsConstructor
 public class GeometryController {
 

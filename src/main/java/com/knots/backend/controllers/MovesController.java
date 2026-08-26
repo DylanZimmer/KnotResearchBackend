@@ -50,9 +50,10 @@ public class MovesController {
     /*
     @PostMapping("/add_twist")
     public void performAddTwist(@RequestBody AddTwistRequest request) {
-        geometryService.performTwist(request.line(), request.handedness());
-        invariantService.performTwist(request.line(), request.handedness());
+        geometryService.performAddTwist(request.line(), request.handedness());
+        //invariantService.performTwist(request.line(), request.handedness());
     }
+
 
     @PostMapping("/add_poke")
     public void performAddPoke(@RequestBody AddPokeRequest request) {

@@ -2,6 +2,7 @@ package com.knots.backend.services;
 
 import com.knots.backend.models.dtos.*;
 import com.knots.backend.models.entities.*;
+import com.knots.backend.models.keys.DiagramKey;
 import com.knots.backend.repositories.*;
 
 import jakarta.transaction.Transactional;
@@ -31,6 +32,8 @@ public class GeometryService {
 
         List<CrossingSpecsRolf> c_specs =
                 crossingSpecsRolfRepo.findAllByDiagramIdOrderByCrossingIdAsc(diagramId);
+
+        String handedness = currentDiagramRepo.findFirstBy().getHandedness();
 
         List<List<Long>> vertexPositionsList = new ArrayList<>();
         List<List<Long>> arrowsList = new ArrayList<>();
@@ -63,7 +66,8 @@ public class GeometryService {
         return new GeometryDto(
                 vertexPositionsList,
                 arrowsList,
-                crossingSpecsList
+                crossingSpecsList,
+                handedness
         );
     }
 
@@ -73,6 +77,8 @@ public class GeometryService {
 
         List<CrossingSpecs> c_specs =
                 crossingSpecsRepo.findAll();
+
+        String handedness = currentDiagramRepo.findFirstBy().getHandedness();
 
         List<List<Long>> vertexPositionsList = new ArrayList<>();
         List<List<Long>> arrowsList = new ArrayList<>();
@@ -107,7 +113,8 @@ public class GeometryService {
         return new GeometryDto(
                 vertexPositionsList,
                 arrowsList,
-                crossingSpecsList
+                crossingSpecsList,
+                handedness
         );
     }
 
@@ -119,6 +126,7 @@ public class GeometryService {
     public void clearCurrentGeometry() {
         verticesAndArrowsRepo.deleteAll();
         crossingSpecsRepo.deleteAll();
+        currentDiagramRepo.deleteAll();
     }
 
     @Transactional
@@ -132,6 +140,7 @@ public class GeometryService {
 
         List<VerticesAndArrows> vs_and_as_copy = new ArrayList<>();
         List<CrossingSpecs> c_specs_copy = new ArrayList<>();
+        List<CurrentDiagram> curr_diagram = new ArrayList<>();
 
         for (VerticesAndArrowsRolf va : vs_and_as) {
             VerticesAndArrows copy = new VerticesAndArrows();
@@ -155,8 +164,16 @@ public class GeometryService {
             copy.setCrossingY(c.getCrossingY());
             c_specs_copy.add(copy);
         }
+
+        CurrentDiagram currDiagram = new CurrentDiagram();
+
+        currDiagram.setDiagramId(diagramId);
+        currDiagram.setHandedness("R");
+        currDiagram.setExtension(0L);
+
         verticesAndArrowsRepo.saveAll(vs_and_as_copy);
         crossingSpecsRepo.saveAll(c_specs_copy);
+        currentDiagramRepo.save(currDiagram);
     }
 
     @Transactional
@@ -171,17 +188,9 @@ public class GeometryService {
 
     @Transactional
     public void performOrientationFlip() {
-        List<VerticesAndArrows> vs_and_as = verticesAndArrowsRepo.findAll();
-        for (VerticesAndArrows va : vs_and_as) {
-            if (va.getHandedness().equals("R")) {
-                va.setHandedness("L");
-            } else if (va.getHandedness().equals("L")) {
-                va.setHandedness("R");
-            }
-        }
+        CurrentDiagram currDiagram = currentDiagramRepo.findFirstBy();
+        currDiagram.setHandedness(currDiagram.getHandedness().equals("R") ? "L" : "R");
     }
-
-
 
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<><
     //Below is the 'fill out rectangles' idea
@@ -287,11 +296,6 @@ public class GeometryService {
         }
         return leftmostSeg;
     }
-
-
-
-
-
 
     /*
     private Pair<Pair<LongPair, LongPair>, Pair<LongPair, LongPair>> nextHSegsFromLeftmostVSeg(List<Pair<LongPair, LongPair>> hSegs, Pair<LongPair, LongPair> leftmostSeg) {

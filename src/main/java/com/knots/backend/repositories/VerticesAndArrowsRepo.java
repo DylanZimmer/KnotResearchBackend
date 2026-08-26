@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface VerticesAndArrowsRepo extends JpaRepository<VerticesAndArrows, Long> {
-    /*
+
     @Query("""
             SELECT v.endPoint
             FROM VerticesAndArrows v
@@ -20,15 +20,16 @@ public interface VerticesAndArrowsRepo extends JpaRepository<VerticesAndArrows, 
     Long findEndPointByStartPoint(@Param("startPoint") Long startPoint);
 
 
+    /*
     @Query("""
             SELECT new com.knots.backend.models.dtos.LongPair(v.strandX, v.strandY)
             FROM VerticesAndArrows v
             WHERE v.startPoint = :startPoint
     """)
     LongPair findStrandCoordinatesFromStartPoint(@Param("startPoint") Long startPoint);
-     */
 
-    /*
+
+
     @Query("""
         SELECT new com.knots.backend.models.dtos.TwoXYPairs(v1.strandX, v1.strandY, v2.strandX, v2.strandY)
         FROM VerticesAndArrows v1, VerticesAndArrows v2
