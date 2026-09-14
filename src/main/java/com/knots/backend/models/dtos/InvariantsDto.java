@@ -1,7 +1,8 @@
 package com.knots.backend.models.dtos;
 
-public record InvariantDto(
-    Long determinant,
+
+public record InvariantsDto(
     String alexander_polynomial,
-    String jones_polynomial
+    Long determinant,
+    Long writhe
 ) {}

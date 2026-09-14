@@ -1,7 +1,7 @@
 package com.knots.backend.controllers;
 
 
-import com.knots.backend.models.dtos.InvariantDto;
+import com.knots.backend.models.dtos.InvariantsDto;
 import com.knots.backend.services.InvariantRolfService;
 
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +15,7 @@ public class InvariantRolfController {
     private final InvariantRolfService invariantRolfService;
 
     @GetMapping("/rolf_invariants")
-    public InvariantDto getInvariantsByKnotId(@RequestParam Long knotId) {
+    public InvariantsDto getInvariantsByKnotId(@RequestParam Long knotId) {
         return invariantRolfService.getInvariantsByKnotId(knotId);
     }
 }
