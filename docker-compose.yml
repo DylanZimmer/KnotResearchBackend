@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SAGE_MATH_URL: http://sage-math:8000
+    ports:
+      - "8080:8080"
+    depends_on:
+      sage-math:
+        condition: service_healthy
+
+  sage-math:
+    build:
+      context: ./sage-math-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./sage-math-service/app:/app/app
+    healthcheck:
+      test: ["CMD", "sage", "-python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s

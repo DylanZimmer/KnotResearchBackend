@@ -64,14 +64,6 @@ public class FullNotationMovesService {
 
     public List<FullNotation> addTwist(List<FullNotation> fnList, Long strand, Long sign) {
         List<FullNotation> newFnList = new ArrayList<>();
-        //The strand n should be split up into n and n+1.
-            //Then every subsequent strand should be itself + 1
-                    //I NEED TWO NEW LINES, one for each placement
-        //They'll share a strand, that strand is the loop
-                //The newLine should be same knotId, crossingId = max of cid with strand,
-        //with every subsequent cid as itself + 1,
-        //Is that even better? I can just make it the max cid, the next one
-        //Long twistCid = max(fnLineIntoTwist.getCrossingId(), fnLineOutOfTwist.getCrossingId());
         long twistCid = fnList.stream().mapToLong(FullNotation::getCrossingId).max().orElse(0L) + 1;
         long kId = fnList.get(0).getKnotId();
         long cidBefore = -1;
@@ -98,6 +90,7 @@ public class FullNotationMovesService {
             }
             nextLine.setStrandAfter(setStrand(strand, fn.getStrandAfter()));
             nextLine.setSign(fn.getSign());
+            newFnList.add(nextLine);
         }
         if (sign == 1) {
             newFnList.add(new FullNotation(kId, twistCid, "over", cidBefore, twistCid, strand, strand+1, sign));
@@ -108,4 +101,46 @@ public class FullNotationMovesService {
         }
         return newFnList;
     }
+
+    //Get 2,3,... boundary crossings, then switch up strategy at the end to split
+        //up the large one / check if there's only one
+    /*
+    public List<List<Long>> getPossibleR2Options(List<FullNotation> fnListInit) {
+        List<FullNotation> fnList = fnListInit;
+        List<List<Long>> compatibleStrands = new ArrayList<>();
+        Long maxCid = 0L;
+        for (Long cid = 0L; cid <= maxCid; cid++) {
+            if (fnList.get(crossingId).equals(cid)) {
+
+            }
+        }
+        return compatibleStrands;
+    }
+
+    //Do this by strands. Convert to strand before feeding to this
+    public List<FullNotation> addR2(List<FullNotation> fnList, Long overStrand, Long underStrand) {
+        List<FullNotation> newFnList = new ArrayList<>();
+        for (FullNotation fn : fnList) {
+            FullNotation nextLine = new FullNotation();
+            nextLine.setKnotId(fn.getKnotId());
+            if (overStrand.equals(fn.getStrandBefore())) {
+
+            } else if (overStrand.equals(fn.getStrandAfter())) {
+
+            } else if (underStrand.equals(fn.getStrandBefore())) {
+
+            } else if (underStrand.equals(fn.getStrandAfter())) {
+
+            } else {
+
+            }
+            newFnList.add(nextLine);
+        }
+
+
+
+        return newFnList;
+    }
+    */
+
 }
