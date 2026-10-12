@@ -1,5 +1,8 @@
 package com.knots.backend;
 
+import com.knots.backend.models.dtos.Sign;
+import com.knots.backend.models.dtos.Placement;
+
 import com.knots.backend.models.dtos.InvariantsDto;
 import com.knots.backend.models.entities.*;
 import com.knots.backend.models.keys.*;
@@ -59,13 +62,13 @@ class BackendApplicationTests {
     @Test
     @Transactional
     void reloadsCompositeKeysAndProjectsOnlyTheRequestedState() {
-        var key = new ExperimentsFNKey(7L, 42L, 0L, "over", 3L);
-        notationRepo.save(new ExperimentsFullNotation(key, 2L, 4L, 5L, 6L, 1L));
+        var key = new ExperimentsFNKey(7L, 42L, 0L, Placement.over, 3L);
+        notationRepo.save(new ExperimentsFullNotation(key, 2L, 4L, 5L, 6L, Sign.pos));
         notationRepo.save(new ExperimentsFullNotation(
-                new ExperimentsFNKey(7L, 42L, 1L, "under", 3L), 4L, 2L, 6L, 5L, -1L));
+                new ExperimentsFNKey(7L, 42L, 1L, Placement.under, 3L), 4L, 2L, 6L, 5L, Sign.neg));
         var stateKey = new ExperimentStatesKey(7L, 42L, 0L);
         statesRepo.save(new ExperimentStates(stateKey, null, "starting", "1", 1L, 1L));
-        var rolfKey = new FullNotationKey(42L, 3L, "over");
+        var rolfKey = new FullNotationKey(42L, 3L, Placement.over);
         FullNotationRolf rolf = new FullNotationRolf();
         rolf.setId(rolfKey);
         rolfNotationRepo.save(rolf);
@@ -77,7 +80,7 @@ class BackendApplicationTests {
         assertThat(rolfNotationRepo.findById(rolfKey)).isPresent();
         assertThat(statesRepo.findOgKnotIdsByExperimentIdAndStateNum(7L, 0L)).containsExactly(42L);
         assertThat(notationRepo.findFnListFromState(7L, 42L, 0L))
-                .containsExactly(new FullNotation(42L, 3L, "over", 2L, 4L, 5L, 6L, 1L));
+                .containsExactly(new FullNotation(42L, 3L, Placement.over, 2L, 4L, 5L, 6L, Sign.pos));
         assertThat(notationRepo.findFnListFromState(8L, 42L, 0L)).isEmpty();
     }
 }

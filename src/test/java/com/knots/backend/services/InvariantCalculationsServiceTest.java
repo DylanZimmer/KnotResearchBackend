@@ -1,5 +1,8 @@
 package com.knots.backend.services;
 
+import com.knots.backend.models.dtos.Sign;
+import com.knots.backend.models.dtos.Placement;
+
 import com.knots.backend.models.dtos.LongPair;
 import com.knots.backend.models.dtos.sage.AlexanderResponse;
 import com.knots.backend.models.entities.FullNotation;
@@ -17,8 +20,8 @@ class InvariantCalculationsServiceTest {
         when(sage.calculateAlexanderPolynomial(any())).thenReturn(new AlexanderResponse("1", 1L));
         var service = new InvariantCalculationsService(sage);
         var result = service.getAllInvariants(List.of(
-                new FullNotation(42L, 17L, "over", 17L, 17L, 0L, 1L, 1L),
-                new FullNotation(42L, 17L, "under", 17L, 17L, 1L, 0L, 1L)));
+                new FullNotation(42L, 17L, Placement.over, 17L, 17L, 0L, 1L, Sign.pos),
+                new FullNotation(42L, 17L, Placement.under, 17L, 17L, 1L, 0L, Sign.pos)));
         var matrix = ArgumentCaptor.forClass(LongPair[][].class);
         verify(sage).calculateAlexanderPolynomial(matrix.capture());
         assertThat(matrix.getValue()).hasDimensions(1, 1);

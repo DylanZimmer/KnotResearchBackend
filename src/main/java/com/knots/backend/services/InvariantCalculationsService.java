@@ -1,5 +1,8 @@
 package com.knots.backend.services;
 
+import com.knots.backend.models.dtos.Sign;
+import com.knots.backend.models.dtos.Placement;
+
 import com.knots.backend.models.dtos.InvariantsDto;
 import com.knots.backend.models.dtos.LongPair;
 import com.knots.backend.models.dtos.sage.AlexanderResponse;
@@ -23,15 +26,15 @@ public class InvariantCalculationsService {
         Long arcNum = 0L;
         Map<LongPair, Long> arcsDict = new HashMap<>();
         for (FullNotation fn : fnList) {
-            if (fn.getPlacement().equals("over")) {
+            if (fn.getPlacement() == Placement.over) {
                 arcsDict.put(new LongPair(fn.getStrandBefore(), fn.getStrandAfter()), arcNum);
-                alexanderArcs.put(fn.getCrossingId(), new ArrayList<>(Arrays.asList(0L, 0L, arcNum, 0L)));
+                alexanderArcs.put(fn.getCrossingId(), new ArrayList<>(Arrays.asList(0L, 0L, arcNum)));
                 arcNum += 1L;
             }
         }
         for (FullNotation fn : fnList) {
             int changedCnt = 0;
-            if (fn.getPlacement().equals("under")) {
+            if (fn.getPlacement() == Placement.under) {
                 for (Map.Entry<LongPair, Long> entry : arcsDict.entrySet()) {
                     if (fn.getStrandBefore().equals(entry.getKey().x()) || fn.getStrandBefore().equals(entry.getKey().y())) {
                         alexanderArcs.get(fn.getCrossingId()).set(0, entry.getValue());
@@ -42,11 +45,6 @@ public class InvariantCalculationsService {
                         changedCnt += 1;
                     }
                     if (changedCnt == 2) {
-                        if (fn.getSign() == 1L) {
-                            alexanderArcs.get(fn.getCrossingId()).set(3, 1L);
-                        } else if (fn.getSign() == -1L) {
-                            alexanderArcs.get(fn.getCrossingId()).set(3, -1L);
-                        }
                         break;
                     }
                 }
@@ -61,13 +59,17 @@ public class InvariantCalculationsService {
         for (LongPair[] row : alexanderMatrix) {
             Arrays.fill(row, new LongPair(0L, 0L));
         }
+        Map<Long, Sign> crossingSigns = new HashMap<>();
+        for (FullNotation fn : fnList) {
+            crossingSigns.put(fn.getCrossingId(), fn.getSign());
+        }
         int rowIndex = 0;
         for (Map.Entry<Long, List<Long>> entry : alexanderArcs.entrySet()) {
-            if (entry.getValue().get(3) == 1L) {
+            if (crossingSigns.get(entry.getKey()) == Sign.pos) {
                 addCoefficient(alexanderMatrix[rowIndex], entry.getValue().get(0).intValue(), new LongPair(-1L, 0L));
                 addCoefficient(alexanderMatrix[rowIndex], entry.getValue().get(1).intValue(), new LongPair(0L, 1L));
                 addCoefficient(alexanderMatrix[rowIndex], entry.getValue().get(2).intValue(), new LongPair(1L, -1L));
-            } else if (entry.getValue().get(3) == -1L) {
+            } else if (crossingSigns.get(entry.getKey()) == Sign.neg) {
                 addCoefficient(alexanderMatrix[rowIndex], entry.getValue().get(0).intValue(), new LongPair(0L, -1L));
                 addCoefficient(alexanderMatrix[rowIndex], entry.getValue().get(1).intValue(), new LongPair(1L, 0L));
                 addCoefficient(alexanderMatrix[rowIndex], entry.getValue().get(2).intValue(), new LongPair(-1L, 1L));
@@ -83,7 +85,7 @@ public class InvariantCalculationsService {
     }
 
     private Long calculateWrithe(List<FullNotation> fnList) {
-        return fnList.stream().filter(fn -> "over".equals(fn.getPlacement())).mapToLong(FullNotation::getSign).sum();
+        return fnList.stream().filter(fn -> fn.getPlacement() == Placement.over).mapToLong(fn -> fn.getSign().value()).sum();
     }
 
     public InvariantsDto getAllInvariants(List<FullNotation> fnList) {

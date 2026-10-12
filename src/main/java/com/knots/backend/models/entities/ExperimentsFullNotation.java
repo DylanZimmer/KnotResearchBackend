@@ -1,5 +1,6 @@
 package com.knots.backend.models.entities;
 
+import com.knots.backend.models.dtos.Sign;
 import com.knots.backend.models.keys.ExperimentsFNKey;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -20,5 +21,6 @@ public class ExperimentsFullNotation {
     private Long cidAfter;
     private Long strandBefore;
     private Long strandAfter;
-    private Long sign;
+    @jakarta.persistence.Convert(converter = com.knots.backend.models.converters.SignConverter.class)
+    private Sign sign;
 }

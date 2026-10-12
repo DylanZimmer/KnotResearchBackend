@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
+import com.knots.backend.models.dtos.MoveType;
+
 @Entity
 @Data
 @AllArgsConstructor
@@ -14,7 +16,7 @@ import lombok.NoArgsConstructor;
 public class ExperimentStates {
     @EmbeddedId
     private ExperimentStatesKey id;
-    private String moveType;
+    private MoveType moveType;
     private String experimentStatus;
     private String alexanderPolynomial;
     private Long determinant;

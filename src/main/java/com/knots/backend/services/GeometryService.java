@@ -36,27 +36,11 @@ public class GeometryService {
         List<List<Long>> crossingSpecsList = new ArrayList<>();
 
         for (CrossingSpecsRolf c : c_specs) {
-            crossingSpecsList.add(
-                    List.of(
-                            c.getCrossingId(),
-                            c.getUnderLine(),
-                            c.getOverLine()
-                    )
-            );
+            crossingSpecsList.add(List.of(c.getCrossingId(), c.getUnderLine(), c.getOverLine()));
         }
         for (VerticesAndArrowsRolf va : vs_and_as) {
-            vertexPositionsList.add(
-                    List.of(
-                            va.getStrandX(),
-                            va.getStrandY()
-                    )
-            );
-            arrowsList.add(
-                    List.of(
-                            va.getPoint(),
-                            va.getPoint()
-                    )
-            );
+            vertexPositionsList.add(List.of(va.getStrandX(), va.getStrandY()));
+            arrowsList.add(List.of(va.getPoint(), va.getPoint()));
         }
 
         return new GeometryDto(
