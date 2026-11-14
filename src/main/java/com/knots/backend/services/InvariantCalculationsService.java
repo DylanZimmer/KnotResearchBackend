@@ -1,10 +1,7 @@
 package com.knots.backend.services;
 
-import com.knots.backend.models.dtos.Sign;
-import com.knots.backend.models.dtos.Placement;
+import com.knots.backend.models.dtos.*;
 
-import com.knots.backend.models.dtos.InvariantsDto;
-import com.knots.backend.models.dtos.LongPair;
 import com.knots.backend.models.dtos.sage.AlexanderResponse;
 import com.knots.backend.models.entities.FullNotation;
 import lombok.RequiredArgsConstructor;
@@ -18,43 +15,74 @@ public class InvariantCalculationsService {
 
     private final SageMathService sageMathService;
 
-    //over-Strands need to be one strand
-    //Those are the only strands - I need to define the arcs from the overs, then just change the unders
+
+    //****************************************************************************
+    //Calculate matrices/objects to send to SageMath
+
+    // Arcs for the Alexander matrix. An arc runs from one under-passage to the next, possibly
+    // passing over several crossings on the way, so walk each component of the knot and start a
+    // new arc after every under-passage. Returns crossingId -> [arc in, arc out, arc over] for the
+    // under strand's incoming arc, its outgoing arc and the over arc. Returns null when some
+    // component never passes under anything: that component can be lifted off, so the link is
+    // split and its Alexander polynomial is 0.
     private Map<Long, List<Long>> createAlexanderArcs(List<FullNotation> fnList) {
-        //Need crossingId, (strands:) underBefore, underAfter, over for the alexanderArc
-        Map<Long, List<Long>> alexanderArcs = new HashMap<>();
-        Long arcNum = 0L;
-        Map<LongPair, Long> arcsDict = new HashMap<>();
+        Map<Long, FullNotation> byStrandBefore = new HashMap<>();
         for (FullNotation fn : fnList) {
-            if (fn.getPlacement() == Placement.over) {
-                arcsDict.put(new LongPair(fn.getStrandBefore(), fn.getStrandAfter()), arcNum);
-                alexanderArcs.put(fn.getCrossingId(), new ArrayList<>(Arrays.asList(0L, 0L, arcNum)));
-                arcNum += 1L;
+            byStrandBefore.put(fn.getStrandBefore(), fn);
+        }
+        Map<Long, Long> arcOfStrand = new HashMap<>();
+        Set<FullNotation> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        long nextArc = 0L;
+        for (FullNotation start : fnList) {
+            if (visited.contains(start)) {
+                continue;
+            }
+            List<FullNotation> component = new ArrayList<>();
+            FullNotation current = start;
+            while (current != null && visited.add(current)) {
+                component.add(current);
+                current = byStrandBefore.get(current.getStrandAfter());
+            }
+            int firstUnder = -1;
+            for (int i = 0; i < component.size(); i++) {
+                if (component.get(i).getPlacement() == Placement.under) {
+                    firstUnder = i;
+                    break;
+                }
+            }
+            if (firstUnder == -1) {
+                return null;
+            }
+            // Start just after an under-passage, so the walk begins at the start of an arc.
+            Collections.rotate(component, -(firstUnder + 1));
+            long arc = nextArc++;
+            for (int i = 0; i < component.size(); i++) {
+                FullNotation fn = component.get(i);
+                arcOfStrand.put(fn.getStrandBefore(), arc);
+                if (fn.getPlacement() == Placement.under && i < component.size() - 1) {
+                    arc = nextArc++;
+                }
             }
         }
+        Map<Long, List<Long>> alexanderArcs = new HashMap<>();
         for (FullNotation fn : fnList) {
-            int changedCnt = 0;
+            List<Long> arcs = alexanderArcs.computeIfAbsent(fn.getCrossingId(), cid -> new ArrayList<>(Arrays.asList(0L, 0L, 0L)));
             if (fn.getPlacement() == Placement.under) {
-                for (Map.Entry<LongPair, Long> entry : arcsDict.entrySet()) {
-                    if (fn.getStrandBefore().equals(entry.getKey().x()) || fn.getStrandBefore().equals(entry.getKey().y())) {
-                        alexanderArcs.get(fn.getCrossingId()).set(0, entry.getValue());
-                        changedCnt += 1;
-                    }
-                    if (fn.getStrandAfter().equals(entry.getKey().x()) || fn.getStrandAfter().equals(entry.getKey().y())) {
-                        alexanderArcs.get(fn.getCrossingId()).set(1, entry.getValue());
-                        changedCnt += 1;
-                    }
-                    if (changedCnt == 2) {
-                        break;
-                    }
-                }
+                arcs.set(0, arcOfStrand.get(fn.getStrandBefore()));
+                arcs.set(1, arcOfStrand.get(fn.getStrandAfter()));
+            } else {
+                arcs.set(2, arcOfStrand.get(fn.getStrandBefore()));
             }
         }
         return alexanderArcs;
     }
 
+    // Null for a split link (see createAlexanderArcs).
     private LongPair[][] createAlexanderMatrix(List<FullNotation> fnList) {
         Map<Long, List<Long>> alexanderArcs = createAlexanderArcs(fnList);
+        if (alexanderArcs == null) {
+            return null;
+        }
         LongPair[][] alexanderMatrix = new LongPair[alexanderArcs.size()][alexanderArcs.size()];
         for (LongPair[] row : alexanderMatrix) {
             Arrays.fill(row, new LongPair(0L, 0L));
@@ -79,6 +107,9 @@ public class InvariantCalculationsService {
         return alexanderMatrix;
     }
 
+    //************************************************************************************
+    //Invariants calculable from just the full notation
+
     private void addCoefficient(LongPair[] row, int column, LongPair value) {
         LongPair current = row[column];
         row[column] = new LongPair(current.x() + value.x(), current.y() + value.y());
@@ -89,9 +120,20 @@ public class InvariantCalculationsService {
     }
 
     public InvariantsDto getAllInvariants(List<FullNotation> fnList) {
-        LongPair[][] alexanderMatrix = createAlexanderMatrix(fnList);
-        AlexanderResponse alexanderResponse = sageMathService.calculateAlexanderPolynomial(alexanderMatrix);
         Long writhe = calculateWrithe(fnList);
-        return (new InvariantsDto(alexanderResponse.polynomial(), alexanderResponse.determinant(), writhe));
+        if (fnList.isEmpty()) {
+            // The unknot drawn with no crossings.
+            return new InvariantsDto("1", 1L, writhe);
+        }
+        LongPair[][] alexanderMatrix = createAlexanderMatrix(fnList);
+        if (alexanderMatrix == null) {
+            return new InvariantsDto("0", 0L, writhe);
+        }
+        AlexanderResponse alexanderResponse = sageMathService.calculateAlexanderPolynomial(alexanderMatrix);
+        return new InvariantsDto(Map.of(
+                InvariantType.Alexander_Polynomial, alexanderResponse.polynomial(),
+                InvariantType.Determinant, alexanderResponse.determinant(),
+                InvariantType.Writhe, writhe
+        ));
     }
 }

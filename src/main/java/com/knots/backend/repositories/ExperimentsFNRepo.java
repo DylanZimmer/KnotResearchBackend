@@ -18,6 +18,8 @@ public interface ExperimentsFNRepo extends JpaRepository<ExperimentsFullNotation
         WHERE e.id.experimentId = :experimentId
         AND e.id.ogKnotId = :ogKnotId
         AND e.id.stateNum = :stateNum
+        AND e.id.subStateNum = :subStateNum
     """)
-    List<FullNotation> findFnListFromState(@Param("experimentId") Long experimentId, @Param("ogKnotId") Long ogKnotId, @Param("stateNum") Long stateNum);
+    List<FullNotation> findFnListFromState(@Param("experimentId") Long experimentId, @Param("ogKnotId") Long ogKnotId,
+                                           @Param("stateNum") Long stateNum, @Param("subStateNum") Long subStateNum);
 }

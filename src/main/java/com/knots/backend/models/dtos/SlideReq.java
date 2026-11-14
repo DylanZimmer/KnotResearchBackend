@@ -4,7 +4,9 @@ import com.knots.backend.models.entities.FullNotation;
 
 import java.util.List;
 
-public record R3ableListReq(
+public record SlideReq(
         List<FullNotation> fnList,
-        List<List<Long>> boundaries
+        List<Long> boundary,
+        Long strand,
+        Long cid
 ) {}

@@ -19,6 +19,7 @@ public class ExperimentsFNKey implements Serializable {
     private Long experimentId;
     private Long ogKnotId;
     private Long stateNum;
+    private Long subStateNum;
     @Enumerated(EnumType.STRING)
     private Placement placement;
     private Long crossingId;

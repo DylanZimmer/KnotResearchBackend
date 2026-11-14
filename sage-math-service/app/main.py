@@ -54,6 +54,12 @@ def alexander(request: AlexanderRequest) -> AlexanderResponse:
         kept_columns = [index for index in range(size) if index != remove_column]
         minor = alexander_matrix.matrix_from_rows_and_columns(kept_rows, kept_columns)
         polynomial = minor.det()
+        # The Alexander polynomial is only defined up to multiplication by +-t^k. Pick one form
+        # (no factor of t, positive leading coefficient) so equal knots give equal strings.
+        if polynomial != 0:
+            polynomial = polynomial.shift(-polynomial.valuation())
+            if polynomial.leading_coefficient() < 0:
+                polynomial = -polynomial
         return AlexanderResponse(
             polynomial=str(polynomial), determinant=int(abs(polynomial(-1)))
         )

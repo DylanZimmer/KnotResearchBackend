@@ -26,6 +26,6 @@ class InvariantCalculationsServiceTest {
         verify(sage).calculateAlexanderPolynomial(matrix.capture());
         assertThat(matrix.getValue()).hasDimensions(1, 1);
         assertThat(matrix.getValue()[0][0]).isEqualTo(new LongPair(0L, 0L));
-        assertThat(result.writhe()).isEqualTo(1L);
+        assertThat(result.get(com.knots.backend.models.dtos.InvariantType.Writhe)).isEqualTo(1L);
     }
 }

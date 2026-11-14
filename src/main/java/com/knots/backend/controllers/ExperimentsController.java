@@ -4,8 +4,10 @@ package com.knots.backend.controllers;
 import com.knots.backend.models.dtos.LongPair;
 import com.knots.backend.models.dtos.MoveRequestArgs;
 import com.knots.backend.models.dtos.MoveType;
+import com.knots.backend.models.dtos.experiments.GoalExperimentRequest;
 import com.knots.backend.models.dtos.experiments.MoveRequest;
 import com.knots.backend.models.entities.ExperimentStates;
+import com.knots.backend.models.entities.Experiments;
 import com.knots.backend.models.entities.FullNotation;
 import com.knots.backend.services.ExperimentsService;
 import lombok.RequiredArgsConstructor;
@@ -25,14 +27,33 @@ public class ExperimentsController {
         return experimentsService.startExperiment(knotIds);
     }
 
-    @PostMapping("/run_experiment")
-    public void runExperiment(@RequestParam Long experimentId, @RequestBody List<MoveRequest<?, ?>> reqs) {
-        experimentsService.runExperiment(experimentId, reqs);
+    @PostMapping("/run_experiment_no_goal")
+    public void runExperimentNoGoal(@RequestParam Long experimentId, @RequestBody List<MoveRequest<?, ?>> reqs) {
+        experimentsService.runExperimentNoGoal(experimentId, reqs);
+    }
+
+    // Returns the states that reached the goal (all of them sit at the smallest depth found).
+    @PostMapping("/run_experiment_with_goal")
+    public List<ExperimentStates> runExperimentWithGoal(@RequestParam Long experimentId, @RequestBody GoalExperimentRequest req) {
+        return experimentsService.runExperimentWithGoal(experimentId, req.moveRequests(), req.goal(), req.branch());
     }
 
     @GetMapping("/experiment_states")
     public List<ExperimentStates> getExperimentStates(@RequestParam Long experimentId) {
         return experimentsService.getExperimentStates(experimentId);
+    }
+
+    // The experiment row, including its experimentStatus.
+    @GetMapping("/experiment")
+    public Experiments getExperiment(@RequestParam Long experimentId) {
+        return experimentsService.getExperiment(experimentId);
+    }
+
+    // The diagram of one state, so the frontend can draw it.
+    @GetMapping("/state_notation")
+    public List<FullNotation> getStateNotation(@RequestParam Long experimentId, @RequestParam Long ogKnotId,
+                                               @RequestParam Long stateNum, @RequestParam(defaultValue = "0") Long subStateNum) {
+        return experimentsService.getStateNotation(experimentId, ogKnotId, stateNum, subStateNum);
     }
 
 

@@ -15,4 +15,5 @@ import java.io.Serializable;
         private Long experimentId;
         private Long ogKnotId;
         private Long stateNum;
+        private Long subStateNum;
     }

@@ -11,7 +11,7 @@ import java.util.List;
 
 public interface ExperimentStatesRepo extends JpaRepository<ExperimentStates, ExperimentStatesKey> {
     @Query("""
-    SELECT e.id.ogKnotId
+    SELECT DISTINCT e.id.ogKnotId
     FROM ExperimentStates e
     WHERE e.id.experimentId = :experimentId
       AND e.id.stateNum = :stateNum
@@ -19,4 +19,6 @@ public interface ExperimentStatesRepo extends JpaRepository<ExperimentStates, Ex
     List<Long> findOgKnotIdsByExperimentIdAndStateNum(@Param("experimentId") Long experimentId, @Param("stateNum") Long stateNum);
 
     List<ExperimentStates> findByIdExperimentId(Long experimentId);
+
+    boolean existsByIdExperimentIdAndIdStateNumGreaterThan(Long experimentId, Long stateNum);
 }

@@ -8,4 +8,8 @@ public enum MoveType {
     addPoke,
     slide,
     saddle,
+    remTwist,
+    remPoke,
+    remPokesAndTwists,
+    switchPlacement
 }

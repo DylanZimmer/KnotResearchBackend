@@ -1,12 +1,9 @@
 package com.knots.backend.controllers;
 
-import com.knots.backend.models.dtos.Sign;
-import com.knots.backend.models.dtos.LongPair;
+import com.knots.backend.models.dtos.*;
 import com.knots.backend.models.entities.FullNotation;
 import com.knots.backend.services.FullNotationMovesService;
 import com.knots.backend.services.InvariantCalculationsService;
-import com.knots.backend.models.dtos.R3ableListReq;
-import com.knots.backend.models.dtos.R3Req;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -32,38 +29,68 @@ public class MovesController {
     }
 
     @PostMapping("calculate_invariants")
-    public void calculateInvariants(@RequestBody List<FullNotation> fnList) {
-        invariantCalculationsService.getAllInvariants(fnList);
+    public InvariantsDto calculateInvariants(@RequestBody List<FullNotation> fnList) {
+        return invariantCalculationsService.getAllInvariants(fnList);
     }
 
-    @GetMapping("/getBoundaries")
-    public List<List<LongPair>> getBoundaries(@RequestBody List<FullNotation> fnList) {
+    @PostMapping("/get_oriented_boundaries")
+    public List<List<LongPair>> getOrientedBoundaries(@RequestBody List<FullNotation> fnList) {
         return fullNotationMovesService.getOrientedBoundaries(fnList);
     }
 
-    @GetMapping("/r3ableList")
-    public List<List<Long>> r3ableList(@RequestBody R3ableListReq listReq) {
-        return fullNotationMovesService.r3ableList(listReq.fnList(), listReq.boundaries());
+    @PostMapping("/slideableList")
+    public List<List<Long>> slideableList(@RequestBody SlideableListReq listReq) {
+        return fullNotationMovesService.slideableList(listReq.fnList(), listReq.boundaries());
     }
 
-    @GetMapping("/singleR3able")
-    public boolean r3able(@RequestBody List<FullNotation> fnList, @RequestParam Long strand1, @RequestParam Long strand2, @RequestParam Long strand3) {
-        return fullNotationMovesService.triangleR3able(fnList, List.of(strand1, strand2, strand3));
+    @GetMapping("/singleslideable")
+    public boolean slideable(@RequestBody List<FullNotation> fnList, @RequestParam Long strand1, @RequestParam Long strand2, @RequestParam Long strand3) {
+        return fullNotationMovesService.triangleBdySlideable(fnList, List.of(strand1, strand2, strand3));
     }
 
     @PostMapping("/addTwist")
-    public List<FullNotation> addTwist(@RequestBody List<FullNotation> fnList, Long strand, Sign sign) {
+    public List<FullNotation> addTwist(@RequestBody List<FullNotation> fnList, @RequestParam Long strand, @RequestParam Sign sign) {
         return fullNotationMovesService.addTwist(fnList, strand, sign);
     }
 
-    @PostMapping("/addR2")
-    public List<FullNotation> addR2(@RequestBody List<FullNotation> fnList, @RequestParam LongPair underStrandOriented, @RequestParam LongPair overStrandOriented) {
-        return fullNotationMovesService.addR2(fnList, underStrandOriented, overStrandOriented);
+    @PostMapping("/addPoke")
+    public List<FullNotation> addPoke(@RequestBody List<FullNotation> fnList, @RequestParam LongPair underStrandOriented, @RequestParam LongPair overStrandOriented) {
+        return fullNotationMovesService.addPoke(fnList, underStrandOriented, overStrandOriented);
     }
 
-    @PostMapping("/r3Slide")
-    public List<FullNotation> r3Slide(@RequestBody R3Req r3Req) {
-        return fullNotationMovesService.r3Slide(r3Req.fnList(), r3Req.boundary(), r3Req.strand(), r3Req.cid());
+    @PostMapping("/Slide")
+    public List<FullNotation> Slide(@RequestBody SlideReq Req) {
+        if (Req.boundary() != null && Req.boundary().size() == 3) {
+            return fullNotationMovesService.slideTriangle(Req.fnList(), Req.boundary());
+        }
+        return fullNotationMovesService.Slide(Req.fnList(), Req.strand(), Req.cid());
+    }
+
+    // Crossing change: swaps over / under at crossing cid.
+    @PostMapping("/switch_placement")
+    public List<FullNotation> switchPlacement(@RequestBody List<FullNotation> fnList, @RequestParam Long cid) {
+        return fullNotationMovesService.switchPlacement(fnList, cid);
+    }
+
+    // Twists and pokes that can be removed from this diagram.
+    @PostMapping("/removable")
+    public RemovableDto removable(@RequestBody List<FullNotation> fnList) {
+        return new RemovableDto(fullNotationMovesService.getAllTwisted(fnList), fullNotationMovesService.getAllPoked(fnList));
+    }
+
+    @PostMapping("/remTwist")
+    public List<FullNotation> remTwist(@RequestBody List<FullNotation> fnList, @RequestParam Long cid) {
+        return fullNotationMovesService.remTwist(fnList, cid);
+    }
+
+    @PostMapping("/remPoke")
+    public List<FullNotation> remPoke(@RequestBody List<FullNotation> fnList, @RequestParam Long cid1, @RequestParam Long cid2) {
+        return fullNotationMovesService.remPoke(fnList, cid1, cid2);
+    }
+
+    @PostMapping("/remPokesAndTwists")
+    public List<FullNotation> remPokesAndTwists(@RequestBody List<FullNotation> fnList) {
+        return fullNotationMovesService.remPokesAndTwists(fnList);
     }
 
     @PostMapping("/saddle")

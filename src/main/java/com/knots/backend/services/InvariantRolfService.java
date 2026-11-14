@@ -18,11 +18,6 @@ public class InvariantRolfService {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.NOT_FOUND, "Knot invariants not found");
         }
-
-        return new InvariantsDto(
-            invariants.alexander_polynomial(),
-            invariants.determinant(),
-            invariants.writhe()
-        );
+        return invariants;
     }
 }

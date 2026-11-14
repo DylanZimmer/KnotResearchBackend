@@ -9,6 +9,7 @@ import com.knots.backend.models.entities.FnStrand;
 import com.knots.backend.models.entities.FullNotation;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Triple;
 import org.springframework.data.util.Pair;
@@ -60,7 +61,7 @@ public class FullNotationMovesService {
         return newFnList;
     }
 
-    private Long r1SetStrand(Long twistStrand, Long currStrand) {
+    private Long twistSetStrand(Long twistStrand, Long currStrand) {
         if (currStrand >= twistStrand) {
             return currStrand + 2;
         } else {
@@ -80,35 +81,49 @@ public class FullNotationMovesService {
             nextLine.setCrossingId(fn.getCrossingId());
             nextLine.setPlacement(fn.getPlacement());
             if (fn.getStrandBefore().equals(strand)) {
-                nextLine.setStrandBefore(r1SetStrand(strand, strand));
+                nextLine.setStrandAfter(twistSetStrand(strand, fn.getStrandAfter()));
                 nextLine.setCidBefore(twistCid);
                 nextLine.setCidAfter(fn.getCidAfter());
                 cidBefore = fn.getCrossingId();
             } else if (fn.getStrandAfter().equals(strand)) {
+                nextLine.setStrandAfter(strand);
                 nextLine.setCidAfter(twistCid);
                 nextLine.setCidBefore(fn.getCidBefore());
-                nextLine.setStrandBefore(fn.getStrandBefore());
                 cidAfter = fn.getCrossingId();
             } else {
                 nextLine.setCidBefore(fn.getCidBefore());
                 nextLine.setCidAfter(fn.getCidAfter());
-                nextLine.setStrandBefore(r1SetStrand(strand, fn.getStrandBefore()));
+                nextLine.setStrandAfter(twistSetStrand(strand, fn.getStrandAfter()));
             }
-            nextLine.setStrandAfter(r1SetStrand(strand, fn.getStrandAfter()));
+            nextLine.setStrandBefore(twistSetStrand(strand, fn.getStrandBefore()));
             nextLine.setSign(fn.getSign());
             newFnList.add(nextLine);
         }
+        // cidAfter holds the crossing where `strand` starts (its row's cidAfter now points at the twist)
+        // and cidBefore the crossing where it ends, so the twist enters from cidAfter and leaves to cidBefore.
         if (sign == Sign.pos) {
-            newFnList.add(new FullNotation(kId, twistCid, Placement.over, cidBefore, twistCid, strand, strand+1, sign));
-            newFnList.add(new FullNotation(kId, twistCid, Placement.under, twistCid, cidAfter, strand+1, strand+2, sign));
+            newFnList.add(new FullNotation(kId, twistCid, Placement.over, cidAfter, twistCid, strand, strand+1, sign));
+            newFnList.add(new FullNotation(kId, twistCid, Placement.under, twistCid, cidBefore, strand+1, strand+2, sign));
         } else if (sign == Sign.neg) {
-            newFnList.add(new FullNotation(kId, twistCid, Placement.under, cidBefore, twistCid, strand, strand+1, sign));
-            newFnList.add(new FullNotation(kId, twistCid, Placement.over, twistCid, cidAfter, strand+1, strand+2, sign));
+            newFnList.add(new FullNotation(kId, twistCid, Placement.under, cidAfter, twistCid, strand, strand+1, sign));
+            newFnList.add(new FullNotation(kId, twistCid, Placement.over, twistCid, cidBefore, strand+1, strand+2, sign));
         }
         return newFnList;
     }
 
-    private Long r2SetStrand(Long strand, Long strand1, Long strand2) {
+
+    //*************************** !!!!!!!!!!!!!!!!!!!!!!!!!!
+    //Set logic should be in one function with one more integer, the +/- amount
+    private Long addPokeSetStrand(Long strand, Long strandA, Long strandB) {
+        Long strand1;
+        Long strand2;
+        if (strandA < strandB) {
+            strand1 = strandA;
+            strand2 = strandB;
+        } else {
+            strand1 = strandB;
+            strand2 = strandA;
+        }
         if (strand > strand1) {
             if (strand > strand2) {
                 return strand + 4;
@@ -120,64 +135,66 @@ public class FullNotationMovesService {
         }
     }
 
-    public List<FullNotation> addR2(List<FullNotation> fnList, LongPair underStrandOriented, LongPair overStrandOriented) {
-        Long maxCid = fnList.stream().map(FullNotation::getCrossingId).max(Long::compareTo).orElse(0L);
-        Long newCid1 = maxCid + 1;
-        Long newCid2 = maxCid + 2;
-        Long overStrand = overStrandOriented.x();
-        Long underStrand = underStrandOriented.x();
-        Long smallerStrand = Math.min(overStrand, underStrand);
-        Long largerStrand = Math.max(overStrand, underStrand);
-        List<FullNotation> newFnList = new ArrayList<>();
-        for (FullNotation fn : fnList) {
-            Long strandBefore = null;
-            Long cidBefore = null;
-            Long cidAfter = null;
-            if (fn.getStrandBefore().equals(overStrand)) {
-                cidBefore = newCid2;
-                strandBefore = overStrand + 2;
-                newFnList.add(new FullNotation(fn.getKnotId(), newCid1, Placement.over, fn.getCidBefore(), newCid2, overStrand, overStrand+1, Sign.pos));
-            }
-            if (fn.getStrandAfter().equals(overStrand)) {
-                cidAfter = newCid1;
-                newFnList.add(new FullNotation(fn.getKnotId(), newCid2, Placement.over, newCid1, fn.getCidAfter(), overStrand+1, overStrand+2, Sign.neg));
-            }
-            if (fn.getStrandBefore().equals(underStrand)) {
-                strandBefore = underStrand + 2;
-                if (overStrandOriented.y().equals(underStrandOriented.y())) {
-                    cidBefore = newCid2;
-                    newFnList.add(new FullNotation(fn.getKnotId(), newCid2, Placement.under, newCid1, fn.getCidAfter(), underStrand+1, underStrand+2, Sign.neg));
-                } else {
-                    cidBefore = newCid1;
-                    newFnList.add(new FullNotation(fn.getKnotId(), newCid1, Placement.under, newCid2, fn.getCidAfter(), underStrand+1, underStrand+2, Sign.pos));
-                }
-            }
-            if (fn.getStrandAfter().equals(underStrand)) {
-                if (overStrandOriented.y().equals(underStrandOriented.y())) {
-                    cidAfter = newCid1;
-                    newFnList.add(new FullNotation(fn.getKnotId(), newCid1, Placement.under, fn.getCidBefore(), newCid2, underStrand, underStrand + 1, Sign.pos));
-                } else {
-                    cidAfter = newCid2;
-                    newFnList.add(new FullNotation(fn.getKnotId(), newCid2, Placement.under, fn.getCidBefore(), newCid1, underStrand, underStrand + 1, Sign.neg));
-                }
-            }
-            if (strandBefore == null) {
-                strandBefore = r2SetStrand(fn.getStrandBefore(), smallerStrand, largerStrand);
-            }
-            if (cidBefore == null) {
-                cidBefore = fn.getCidBefore();
-            }
-            if (cidAfter == null) {
-                cidAfter = fn.getCidAfter();
-            }
-            newFnList.add(new FullNotation(fn.getKnotId(), fn.getCrossingId(), fn.getPlacement(), cidBefore,
-                    cidAfter, strandBefore, r2SetStrand(fn.getStrandAfter(), smallerStrand, largerStrand), fn.getSign()));
+    private FullNotation copy(FullNotation fn) {
+        return new FullNotation(fn.getKnotId(), fn.getCrossingId(), fn.getPlacement(),
+                fn.getCidBefore(), fn.getCidAfter(), fn.getStrandBefore(), fn.getStrandAfter(), fn.getSign());
+    }
+
+    private FullNotation strandSource(List<FullNotation> rows, Long strand) {
+        return rows.stream().filter(fn -> fn.getStrandAfter().equals(strand)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown strand: " + strand));
+    }
+
+    private FullNotation strandTarget(List<FullNotation> rows, Long strand) {
+        return rows.stream().filter(fn -> fn.getStrandBefore().equals(strand)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown strand: " + strand));
+    }
+
+    public List<FullNotation> addPoke(List<FullNotation> fnList, LongPair underStrandOriented, LongPair overStrandOriented) {
+        long under = underStrandOriented.x();
+        long over = overStrandOriented.x();
+        if (under == over) {
+            throw new IllegalArgumentException("Poke requires two distinct strands");
         }
-        return newFnList;
+        FullNotation underSource = strandSource(fnList, under);
+        FullNotation underTarget = strandTarget(fnList, under);
+        FullNotation overSource = strandSource(fnList, over);
+        FullNotation overTarget = strandTarget(fnList, over);
+        long first = fnList.stream().mapToLong(FullNotation::getCrossingId).max().orElse(0L) + 1;
+        long second = first + 1;
+        boolean sameDirection = underStrandOriented.y().equals(overStrandOriented.y());
+        // Boundary directions choose the face side and the crossing order on each strand.
+        Sign firstSign = underStrandOriented.y() == 1L ? Sign.neg : Sign.pos;
+        long underFirst = sameDirection ? second : first;
+        long underSecond = sameDirection ? first : second;
+        long smaller = Math.min(under, over);
+        long larger = Math.max(under, over);
+        // A split starts after all insertions on lower-numbered strands.
+        long u = addPokeSetStrand(under, smaller, larger);
+        long o = addPokeSetStrand(over, smaller, larger);
+        List<FullNotation> result = new ArrayList<>();
+        for (FullNotation original : fnList) {
+            FullNotation row = copy(original);
+            long before = original.getStrandBefore();
+            long after = original.getStrandAfter();
+            row.setStrandBefore(addPokeSetStrand(before, smaller, larger));
+            row.setStrandAfter(addPokeSetStrand(after, smaller, larger));
+            if (before == under) { row.setStrandBefore(u + 2); row.setCidBefore(underSecond); }
+            if (before == over) { row.setStrandBefore(o + 2); row.setCidBefore(second); }
+            if (after == under) { row.setCidAfter(underFirst); }
+            if (after == over) { row.setCidAfter(first); }
+            result.add(row);
+        }
+        long knotId = overSource.getKnotId();
+        result.add(new FullNotation(knotId, first, Placement.over, overSource.getCrossingId(), second, o, o + 1, firstSign));
+        result.add(new FullNotation(knotId, second, Placement.over, first, overTarget.getCrossingId(), o + 1, o + 2, firstSign.opposite()));
+        result.add(new FullNotation(knotId, underFirst, Placement.under, underSource.getCrossingId(), underSecond, u, u + 1, sameDirection ? firstSign.opposite() : firstSign));
+        result.add(new FullNotation(knotId, underSecond, Placement.under, underFirst, underTarget.getCrossingId(), u + 1, u + 2, sameDirection ? firstSign : firstSign.opposite()));
+        return result;
     }
 
     //Consider splitting into taking strand1,2,3, or switching controller needs
-    public boolean triangleR3able(List<FullNotation> fnList, List<Long> bdy) {
+    public boolean triangleBdySlideable(List<FullNotation> fnList, List<Long> bdy) {
         boolean double_over = false;
         boolean double_under = false;
         boolean one_each = false;
@@ -223,58 +240,174 @@ public class FullNotationMovesService {
         }
     }
 
-    public List<List<Long>> r3ableList(List<FullNotation> fnList, List<List<Long>> boundaries) {
-        List<List<Long>> r3able = new ArrayList<>();
+    public List<List<Long>> slideableList(List<FullNotation> fnList, List<List<Long>> boundaries) {
+        List<List<Long>> slideable = new ArrayList<>();
         for (List<Long> bdy : boundaries) {
-            if (bdy.size() ==3) {
-                if (triangleR3able(fnList, bdy)) {
-                    r3able.add(bdy);
+            // isSlideableTriangle includes triangleBdySlideable and also rejects degenerate faces
+            // (e.g. next to a twist loop) that slideTriangle can't move.
+            if (bdy.size() == 3 && isSlideableTriangle(fnList, bdy)) {
+                slideable.add(bdy);
+            }
+        }
+        return slideable;
+    }
+
+    // Slide (Reidemeister III) of `strand` across crossing `cid`, the crossing of the triangle that
+    // isn't on `strand`. Finds the other two strands of the triangle, then calls slideTriangle.
+    public List<FullNotation> Slide(List<FullNotation> fnList, Long strand, Long cid) {
+        Map<Long, FullNotation> byStrandBefore = new HashMap<>();
+        Map<Long, FullNotation> byStrandAfter = new HashMap<>();
+        for (FullNotation fn : fnList) {
+            byStrandBefore.put(fn.getStrandBefore(), fn);
+            byStrandAfter.put(fn.getStrandAfter(), fn);
+        }
+        if (!byStrandBefore.containsKey(strand) || !byStrandAfter.containsKey(strand)) {
+            throw new IllegalArgumentException("Unknown strand: " + strand);
+        }
+        Long startCid = byStrandAfter.get(strand).getCrossingId();
+        Long endCid = byStrandBefore.get(strand).getCrossingId();
+        List<Long> toStart = new ArrayList<>();
+        List<Long> toEnd = new ArrayList<>();
+        for (Long other : byStrandBefore.keySet()) {
+            if (other.equals(strand) || !byStrandAfter.containsKey(other)) {
+                continue;
+            }
+            Set<Long> ends = new HashSet<>(List.of(byStrandAfter.get(other).getCrossingId(), byStrandBefore.get(other).getCrossingId()));
+            if (ends.size() == 2 && ends.contains(cid)) {
+                if (ends.contains(startCid)) toStart.add(other);
+                if (ends.contains(endCid)) toEnd.add(other);
+            }
+        }
+        for (Long t : toStart) {
+            for (Long u : toEnd) {
+                List<Long> triangle = List.of(strand, t, u);
+                if (isSlideableTriangle(fnList, triangle)) {
+                    return slideTriangle(fnList, triangle);
                 }
             }
         }
-        return r3able;
+        throw new IllegalArgumentException("Strand " + strand + " and crossing " + cid + " don't form a slideable triangle");
     }
 
-
-    public List<FullNotation> r3Slide(List<FullNotation> fnList, List<Long> bdy, Long strand, Long cid) {
-        //List<FullNotation> newFnList = new ArrayList<>();
-        return fnList;
+    // True when the three strands bound a triangle that can be slid: three different strands
+    // joining three different crossings pairwise, with one strand over at both of its crossings,
+    // one under at both, and one of each (triangleBdySlideable).
+    public boolean isSlideableTriangle(List<FullNotation> fnList, List<Long> triangle) {
+        if (triangle == null || triangle.size() != 3 || new HashSet<>(triangle).size() != 3) {
+            return false;
+        }
+        Set<FullNotation> passages = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Set<Long>> sides = new HashSet<>();
+        Set<Long> crossings = new HashSet<>();
+        for (Long strand : triangle) {
+            List<FullNotation> into = fnList.stream().filter(fn -> fn.getStrandAfter().equals(strand)).toList();
+            List<FullNotation> outOf = fnList.stream().filter(fn -> fn.getStrandBefore().equals(strand)).toList();
+            if (into.size() != 1 || outOf.size() != 1) {
+                return false;
+            }
+            Long start = into.get(0).getCrossingId();
+            Long end = outOf.get(0).getCrossingId();
+            if (start.equals(end)) {
+                return false;
+            }
+            passages.add(into.get(0));
+            passages.add(outOf.get(0));
+            sides.add(Set.of(start, end));
+            crossings.add(start);
+            crossings.add(end);
+        }
+        // 6 different passages means no strand of the triangle runs straight into another one.
+        return passages.size() == 6 && sides.size() == 3 && crossings.size() == 3
+                && triangleBdySlideable(fnList, triangle);
     }
 
-    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& UNTESTED !!!!!!!!!!!!!!!!!!!!!!!!
-    public List<FullNotation> saddle(List<FullNotation> fnList, Long strand1, Long strand2) {
-        List<FullNotation> newFnList = new ArrayList<>();
-        HashMap<Integer, FullNotation> orderedFnToChange = new HashMap<>();
+    // Slide (Reidemeister III) on a triangle given by its three strands. Along each of the three
+    // strands, the crossings at its two ends swap order; every crossing keeps its placement and
+    // sign, and every strand keeps its number. Returns new rows in the same order; fnList is not modified.
+    public List<FullNotation> slideTriangle(List<FullNotation> fnList, List<Long> triangle) {
+        if (!isSlideableTriangle(fnList, triangle)) {
+            throw new IllegalArgumentException("Not a slideable triangle: " + triangle);
+        }
+        Map<Long, FullNotation> byStrandBefore = new HashMap<>();
         for (FullNotation fn : fnList) {
-            if (fn.getStrandBefore().equals(strand1)) {
-                orderedFnToChange.put(0, fn);
-            } else if (fn.getStrandAfter().equals(strand1)) {
-                orderedFnToChange.put(1, fn);
-            } else if (fn.getStrandBefore().equals(strand2)) {
-                orderedFnToChange.put(2, fn);
-            } else if (fn.getStrandAfter().equals(strand2)) {
-                orderedFnToChange.put(3, fn);
-            } else {
-                newFnList.add(fn);
+            byStrandBefore.put(fn.getStrandBefore(), fn);
+        }
+        Map<FullNotation, FullNotation> replacement = new IdentityHashMap<>();
+        Set<FullNotation> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (FullNotation start : fnList) {
+            if (visited.contains(start)) {
+                continue;
+            }
+            // Walk one component: passages[i] is followed by strands[i], then passages[i + 1].
+            List<FullNotation> passages = new ArrayList<>();
+            FullNotation current = start;
+            while (current != null && visited.add(current)) {
+                passages.add(current);
+                current = byStrandBefore.get(current.getStrandAfter());
+            }
+            int k = passages.size();
+            List<Long> strands = passages.stream().map(FullNotation::getStrandAfter).toList();
+            List<FullNotation> order = new ArrayList<>(passages);
+            for (int i = 0; i < k; i++) {
+                if (triangle.contains(strands.get(i))) {
+                    Collections.swap(order, i, (i + 1) % k);
+                }
+            }
+            for (int i = 0; i < k; i++) {
+                FullNotation fn = order.get(i);
+                replacement.put(fn, new FullNotation(fn.getKnotId(), fn.getCrossingId(), fn.getPlacement(),
+                        order.get((i - 1 + k) % k).getCrossingId(), order.get((i + 1) % k).getCrossingId(),
+                        strands.get((i - 1 + k) % k), strands.get(i), fn.getSign()));
             }
         }
-        FullNotation fn = orderedFnToChange.get(0);
-        fn.setCidBefore(orderedFnToChange.get(2).getCidBefore());
-        fn.setStrandBefore(strand2);
-        newFnList.add(fn);
-        fn = orderedFnToChange.get(1);
-        fn.setCidAfter(orderedFnToChange.get(3).getCidAfter());
-        newFnList.add(fn);
-        fn = orderedFnToChange.get(2);
-        fn.setCidBefore(orderedFnToChange.get(0).getCidBefore());
-        fn.setStrandBefore(strand1);
-        newFnList.add(fn);
-        fn = orderedFnToChange.get(3);
-        fn.setCidAfter(orderedFnToChange.get(1).getCidAfter());
-        newFnList.add(fn);
-        return newFnList;
+        return fnList.stream().map(replacement::get).collect(Collectors.toCollection(ArrayList::new));
     }
 
+    public List<FullNotation> saddle(List<FullNotation> fnList, Long strand1, Long strand2) {
+        if (Objects.equals(strand1, strand2)) {
+            throw new IllegalArgumentException("Saddle requires two distinct strands");
+        }
+        FullNotation source1 = strandSource(fnList, strand1);
+        FullNotation source2 = strandSource(fnList, strand2);
+        FullNotation target1 = strandTarget(fnList, strand1);
+        FullNotation target2 = strandTarget(fnList, strand2);
+        List<FullNotation> result = new ArrayList<>();
+        for (FullNotation original : fnList) {
+            FullNotation row = copy(original);
+            if (original.getStrandBefore().equals(strand1)) {
+                row.setStrandBefore(strand2);
+                row.setCidBefore(source2.getCrossingId());
+            }
+            if (original.getStrandBefore().equals(strand2)) {
+                row.setStrandBefore(strand1);
+                row.setCidBefore(source1.getCrossingId());
+            }
+            if (original.getStrandAfter().equals(strand1)) {
+                row.setCidAfter(target2.getCrossingId());
+            }
+            if (original.getStrandAfter().equals(strand2)) {
+                row.setCidAfter(target1.getCrossingId());
+            }
+            result.add(row);
+        }
+        return result;
+    }
+
+    // Crossing change at cid: the strand that went over now goes under and vice versa. With the
+    // orientations unchanged this flips the crossing's sign (like mirror, for one crossing).
+    // Returns new rows; fnList is not modified.
+    public List<FullNotation> switchPlacement(List<FullNotation> fnList, Long cid) {
+        List<FullNotation> result = new ArrayList<>();
+        for (FullNotation fn : fnList) {
+            FullNotation row = copy(fn);
+            if (fn.getCrossingId().equals(cid)) {
+                row.setPlacement(fn.getPlacement() == Placement.over ? Placement.under : Placement.over);
+                row.setSign(fn.getSign().opposite());
+            }
+            result.add(row);
+        }
+        return result;
+    }
 
     //Using convention :
     //+1: [under into, over outOf, under outOf, over into]
@@ -420,34 +553,41 @@ public class FullNotationMovesService {
 
 
     public List<List<LongPair>> getOrientedBoundaries(List<FullNotation> fnList) {
-        HashMap<Long, List<LongPair>> orderedStrands = getOrderedStrands(fnList);
-        //orderedStrands is { cid : ((a,0),(b,0),(c,0),(d,0)) } where a,b,c,d are strands
-
-        List<Long> cidList = getCidList(fnList);
-        List<List<LongPair>> boundaries = new ArrayList<>(); //Should soon be List<List<Pair<Long, Boolean>>> for orientation
-        int numFaces = orderedStrands.size() + 2;
-        while (boundaries.size() < numFaces) {
-            Map.Entry<Long, List<LongPair>> entry = orderedStrands.entrySet().iterator().next();
-            int strandIndex = -1;
-            for (int i = 0; i < entry.getValue().size(); i++) {
-                if (entry.getValue().get(i).y().equals(0L)) {
-                    strandIndex = i;
-                    break;
-                }
+        Map<Long, List<LongPair>> crossings = getOrderedStrands(fnList);
+        Map<Long, List<LongPair>> endpoints = new HashMap<>();
+        for (Long cid : new TreeSet<>(crossings.keySet())) {
+            for (int slot = 0; slot < 4; slot++) {
+                long strand = crossings.get(cid).get(slot).x();
+                endpoints.computeIfAbsent(strand, ignored -> new ArrayList<>()).add(new LongPair(cid, (long) slot));
             }
-            if (strandIndex == -1) {
-                for (int i = 0; i < entry.getValue().size(); i++) {
-                    if (entry.getValue().get(i).y().equals(1L) && entry.getValue().get(plus1Mod4(i)).y().equals(1L)) {
-                        strandIndex = i;
+        }
+        Set<LongPair> visited = new HashSet<>();
+        List<List<LongPair>> boundaries = new ArrayList<>();
+        for (Long cid : new TreeSet<>(crossings.keySet())) {
+            for (int slot = 0; slot < 4; slot++) {
+                LongPair start = new LongPair(cid, (long) slot);
+                if (visited.contains(start)) { continue; }
+                LongPair current = start;
+                List<LongPair> boundary = new ArrayList<>();
+                do {
+                    if (!visited.add(current)) {
+                        throw new IllegalArgumentException("Invalid diagram boundary");
                     }
-                }
+                    long strand = crossings.get(current.x()).get(current.y().intValue()).x();
+                    List<LongPair> ends = endpoints.get(strand);
+                    if (ends.size() != 2) {
+                        throw new IllegalArgumentException("Strand must have exactly two endpoints: " + strand);
+                    }
+                    LongPair other = ends.get(0).equals(current) ? ends.get(1) : ends.get(0);
+                    FullNotation source = strandSource(fnList, strand);
+                    int outgoingSlot = source.getPlacement() == Placement.under ? 2
+                            : source.getSign() == Sign.pos ? 1 : 3;
+                    boolean forward = source.getCrossingId().equals(current.x()) && current.y() == outgoingSlot;
+                    boundary.add(new LongPair(strand, forward ? 1L : 0L));
+                    current = new LongPair(other.x(), (other.y() + 1) % 4);
+                } while (!current.equals(start));
+                boundaries.add(boundary);
             }
-            List<LongPair> newBdyRaw = findBoundary(orderedStrands, entry.getKey(), strandIndex, cidList);
-            updateStrandUses(orderedStrands, newBdyRaw);
-            HashMap<Long, LongPair> strandMapping = getStrandMapping(fnList);
-            List<LongPair> newBdyOriented = orientBoundary(newBdyRaw, strandMapping);
-            boundaries.add(newBdyOriented);
-            orderedStrands = remUsedCids(orderedStrands);
         }
         return boundaries;
     }
@@ -462,7 +602,164 @@ public class FullNotationMovesService {
         return orientedStrands;
     }
 
+    //****************************************************************************
+    // Removing twists (R1) and pokes (R2)
 
+    // A twist: a strand that leaves a crossing and comes straight back to it. Its two ends are the
+    // crossing's two different passages, so the loop always bounds a one-strand region.
+    public List<Long> getAllTwisted(List<FullNotation> fnList) {
+        Map<Long, FullNotation> byStrandBefore = new HashMap<>();
+        for (FullNotation fn : fnList) {
+            byStrandBefore.put(fn.getStrandBefore(), fn);
+        }
+        Set<Long> twists = new TreeSet<>();
+        for (FullNotation fn : fnList) {
+            FullNotation end = byStrandBefore.get(fn.getStrandAfter());
+            if (end != null && end != fn && end.getCrossingId().equals(fn.getCrossingId())) {
+                twists.add(fn.getCrossingId());
+            }
+        }
+        return new ArrayList<>(twists);
+    }
 
+    // A poke: a region bounded by exactly two strands joining the same two crossings, one strand
+    // over at both of its ends and the other under at both. Returns each pair of crossings once,
+    // smaller id first.
+    public List<LongPair> getAllPoked(List<FullNotation> fnList) {
+        if (fnList.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Map<Long, FullNotation> byStrandBefore = new HashMap<>();
+        Map<Long, FullNotation> byStrandAfter = new HashMap<>();
+        for (FullNotation fn : fnList) {
+            byStrandBefore.put(fn.getStrandBefore(), fn);
+            byStrandAfter.put(fn.getStrandAfter(), fn);
+        }
+        Set<LongPair> pokes = new LinkedHashSet<>();
+        for (List<LongPair> boundary : getOrientedBoundaries(fnList)) {
+            List<Long> strands = boundary.stream().map(LongPair::x).distinct().toList();
+            if (strands.size() != 2) {
+                continue;
+            }
+            FullNotation start1 = byStrandAfter.get(strands.get(0)), end1 = byStrandBefore.get(strands.get(0));
+            FullNotation start2 = byStrandAfter.get(strands.get(1)), end2 = byStrandBefore.get(strands.get(1));
+            Set<Long> ends1 = new HashSet<>(List.of(start1.getCrossingId(), end1.getCrossingId()));
+            Set<Long> ends2 = new HashSet<>(List.of(start2.getCrossingId(), end2.getCrossingId()));
+            boolean sameCrossings = ends1.size() == 2 && ends1.equals(ends2);
+            boolean oneOverOneUnder = start1.getPlacement() == end1.getPlacement()
+                    && start2.getPlacement() == end2.getPlacement()
+                    && start1.getPlacement() != start2.getPlacement();
+            if (sameCrossings && oneOverOneUnder) {
+                long a = start1.getCrossingId(), b = end1.getCrossingId();
+                pokes.add(new LongPair(Math.min(a, b), Math.max(a, b)));
+            }
+        }
+        return new ArrayList<>(pokes);
+    }
+
+    // Undo a twist (Reidemeister I) at crossing cid.
+    public List<FullNotation> remTwist(List<FullNotation> fnList, Long cid) {
+        if (!getAllTwisted(fnList).contains(cid)) {
+            throw new IllegalArgumentException("Crossing " + cid + " is not a twist");
+        }
+        return removeCrossings(fnList, Set.of(cid));
+    }
+
+    // Undo a poke (Reidemeister II) between crossings cid1 and cid2.
+    public List<FullNotation> remPoke(List<FullNotation> fnList, Long cid1, Long cid2) {
+        LongPair pair = new LongPair(Math.min(cid1, cid2), Math.max(cid1, cid2));
+        if (!getAllPoked(fnList).contains(pair)) {
+            throw new IllegalArgumentException("Crossings " + cid1 + " and " + cid2 + " are not a poke");
+        }
+        return removeCrossings(fnList, Set.of(cid1, cid2));
+    }
+
+    // Remove twists and pokes one at a time (always a twist first if there is one) until none are left.
+    public List<FullNotation> remPokesAndTwists(List<FullNotation> fnList) {
+        List<FullNotation> current = fnList.stream().map(this::copy).collect(Collectors.toCollection(ArrayList::new));
+        boolean removed = true;
+        while (removed && !current.isEmpty()) {
+            removed = false;
+            List<Long> twists = getAllTwisted(current);
+            if (!twists.isEmpty()) {
+                current = remTwist(current, twists.get(0));
+                removed = true;
+                continue;
+            }
+            for (LongPair poke : getAllPoked(current)) {
+                try {
+                    current = remPoke(current, poke.x(), poke.y());
+                    removed = true;
+                    break;
+                } catch (IllegalArgumentException e) {
+                    // This poke would leave a link component with no crossings; try the next one.
+                }
+            }
+        }
+        return current;
+    }
+
+    // Remove every passage through the given crossings and join up what is left: along each component,
+    // the strand that went into a removed run of passages carries on to the next passage kept. Strands
+    // and crossings are then renumbered so their ids stay contiguous (starting where they started).
+    // Returns an empty list when nothing is left (the unknot). Refuses to drop a whole link component
+    // while others remain, since FullNotation can't hold a component without crossings.
+    private List<FullNotation> removeCrossings(List<FullNotation> fnList, Set<Long> cids) {
+        Map<Long, FullNotation> byStrandBefore = new HashMap<>();
+        for (FullNotation fn : fnList) {
+            byStrandBefore.put(fn.getStrandBefore(), fn);
+        }
+        Set<FullNotation> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<FullNotation> rebuilt = new ArrayList<>();
+        int droppedComponents = 0;
+        int components = 0;
+        for (FullNotation start : fnList) {
+            if (visited.contains(start)) {
+                continue;
+            }
+            components++;
+            List<FullNotation> component = new ArrayList<>();
+            FullNotation current = start;
+            while (current != null && visited.add(current)) {
+                component.add(current);
+                current = byStrandBefore.get(current.getStrandAfter());
+            }
+            List<FullNotation> kept = component.stream().filter(fn -> !cids.contains(fn.getCrossingId())).toList();
+            if (kept.isEmpty()) {
+                droppedComponents++;
+                continue;
+            }
+            int k = kept.size();
+            for (int i = 0; i < k; i++) {
+                FullNotation fn = kept.get(i);
+                FullNotation previous = kept.get((i - 1 + k) % k);
+                FullNotation next = kept.get((i + 1) % k);
+                rebuilt.add(new FullNotation(fn.getKnotId(), fn.getCrossingId(), fn.getPlacement(),
+                        previous.getCrossingId(), next.getCrossingId(), previous.getStrandAfter(), fn.getStrandAfter(), fn.getSign()));
+            }
+        }
+        if (droppedComponents > 0 && droppedComponents < components) {
+            throw new IllegalArgumentException("Removing crossings " + cids + " would leave a link component with no crossings");
+        }
+        return renumber(rebuilt, fnList);
+    }
+
+    // Give strands and crossings contiguous ids in their existing order, starting from the smallest ids
+    // the original diagram used.
+    private List<FullNotation> renumber(List<FullNotation> rows, List<FullNotation> original) {
+        if (rows.isEmpty()) {
+            return rows;
+        }
+        long firstStrand = original.stream().mapToLong(FullNotation::getStrandAfter).min().orElse(0L);
+        long firstCrossing = original.stream().mapToLong(FullNotation::getCrossingId).min().orElse(1L);
+        Map<Long, Long> strandIds = new HashMap<>();
+        rows.stream().map(FullNotation::getStrandAfter).sorted().forEach(id -> strandIds.put(id, firstStrand + strandIds.size()));
+        Map<Long, Long> crossingIds = new HashMap<>();
+        rows.stream().map(FullNotation::getCrossingId).distinct().sorted().forEach(id -> crossingIds.put(id, firstCrossing + crossingIds.size()));
+        return rows.stream().map(fn -> new FullNotation(fn.getKnotId(), crossingIds.get(fn.getCrossingId()), fn.getPlacement(),
+                        crossingIds.get(fn.getCidBefore()), crossingIds.get(fn.getCidAfter()),
+                        strandIds.get(fn.getStrandBefore()), strandIds.get(fn.getStrandAfter()), fn.getSign()))
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
 
 }

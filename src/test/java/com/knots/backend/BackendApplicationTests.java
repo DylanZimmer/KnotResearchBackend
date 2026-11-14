@@ -62,12 +62,12 @@ class BackendApplicationTests {
     @Test
     @Transactional
     void reloadsCompositeKeysAndProjectsOnlyTheRequestedState() {
-        var key = new ExperimentsFNKey(7L, 42L, 0L, Placement.over, 3L);
+        var key = new ExperimentsFNKey(7L, 42L, 0L, 0L, Placement.over, 3L);
         notationRepo.save(new ExperimentsFullNotation(key, 2L, 4L, 5L, 6L, Sign.pos));
         notationRepo.save(new ExperimentsFullNotation(
-                new ExperimentsFNKey(7L, 42L, 1L, Placement.under, 3L), 4L, 2L, 6L, 5L, Sign.neg));
-        var stateKey = new ExperimentStatesKey(7L, 42L, 0L);
-        statesRepo.save(new ExperimentStates(stateKey, null, "starting", "1", 1L, 1L));
+                new ExperimentsFNKey(7L, 42L, 1L, 0L, Placement.under, 3L), 4L, 2L, 6L, 5L, Sign.neg));
+        var stateKey = new ExperimentStatesKey(7L, 42L, 0L, 0L);
+        statesRepo.save(new ExperimentStates(stateKey, null, "starting", new InvariantsDto("1", 1L, 1L)));
         var rolfKey = new FullNotationKey(42L, 3L, Placement.over);
         FullNotationRolf rolf = new FullNotationRolf();
         rolf.setId(rolfKey);
@@ -77,10 +77,11 @@ class BackendApplicationTests {
 
         assertThat(notationRepo.findById(key)).isPresent();
         assertThat(statesRepo.findById(stateKey)).isPresent();
+        assertThat(statesRepo.findById(stateKey).get().getInvariants()).isEqualTo(new InvariantsDto("1", 1L, 1L));
         assertThat(rolfNotationRepo.findById(rolfKey)).isPresent();
         assertThat(statesRepo.findOgKnotIdsByExperimentIdAndStateNum(7L, 0L)).containsExactly(42L);
-        assertThat(notationRepo.findFnListFromState(7L, 42L, 0L))
+        assertThat(notationRepo.findFnListFromState(7L, 42L, 0L, 0L))
                 .containsExactly(new FullNotation(42L, 3L, Placement.over, 2L, 4L, 5L, 6L, Sign.pos));
-        assertThat(notationRepo.findFnListFromState(8L, 42L, 0L)).isEmpty();
+        assertThat(notationRepo.findFnListFromState(8L, 42L, 0L, 0L)).isEmpty();
     }
 }
