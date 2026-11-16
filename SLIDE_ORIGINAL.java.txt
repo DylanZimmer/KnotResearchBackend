@@ -1,0 +1,174 @@
+// Original FullNotationMovesService.Slide, replaced on 2026-11-10 (see EXPERIMENT_BRANCHING_CHANGES.md).
+// It threw on most triangles and returned the input unchanged on the rest.
+
+    public List<FullNotation> Slide(List<FullNotation> fnList, Long strand, Long cid) {
+        List<FullNotation> newFnList = new ArrayList<>();
+        List<FullNotation> tmpFnList = new ArrayList<>();
+        Long cid1 = null;
+        Long cid2 = null;
+        Long strand1 = null;
+        Long strand2 = null;
+        Long cidA = null;
+        Long cidB = null;
+        Long cidC = null;
+        Long cidD = null;
+        Long strandA = null;
+        Long strandB = null;
+        Long strandC = null;
+        Long strandD = null;
+        for (FullNotation fn : fnList) {
+            if (fn.getCrossingId().equals(cid) || fn.getCidBefore().equals(cid) || fn.getCidAfter().equals(cid)) {
+                tmpFnList.add(fn);
+            } else if (fn.getStrandBefore().equals(strand)) {
+                cid1 = fn.getCidBefore();
+                //tmpFnList.add(fn);   Don't need to add the rows where it's on the strand, that doesn't change
+                newFnList.add(fn);
+            } else if (fn.getStrandAfter().equals(strand)) {
+                cid2 = fn.getCidAfter();
+                //tmpFnList.add(fn);   Don't need to add the rows where it's on the strand
+                newFnList.add(fn);
+            } else {
+                newFnList.add(fn);
+            }
+        }
+        //now I have cid1 and cid2, I can add the rest that need to be changed to tmpFnList
+        //Everything touching cid is captured, I can label C and D looping through the tmpList
+        //The only lined that need to be put in the tmpList are A and B
+        for (FullNotation fn : newFnList) {
+            if (fn.getCidBefore().equals(cid1)) {
+                cidA = fn.getCidAfter();
+                strandA = fn.getStrandAfter();
+                tmpFnList.add(fn);
+            } else if (fn.getCidAfter().equals(cid1)) {
+                cidA = fn.getCidBefore();
+                strandA = fn.getStrandBefore();
+                tmpFnList.add(fn);
+            } else if (fn.getCidBefore().equals(cid2)) {
+                cidB = fn.getCidAfter();
+                strandB = fn.getStrandAfter();
+                tmpFnList.add(fn);
+            } else if (fn.getCidAfter().equals(cid2)) {
+                cidB = fn.getCidBefore();
+                strandB = fn.getStrandBefore();
+                tmpFnList.add(fn);
+            } else {
+                newFnList.add(fn);
+            }
+        }
+        //All lines that need changing are now in the tmpFnList. Every other line is in the newFnList
+        for (FullNotation fn : tmpFnList) {
+            if (fn.getCrossingId().equals(cid)) {
+                if (fn.getCidBefore().equals(cid1)) {
+                    cidC = fn.getCidAfter();
+                    strandC = fn.getStrandAfter();
+                    strand1 = fn.getStrandBefore();
+                }
+                if (fn.getCidAfter().equals(cid1)) {
+                    cidC = fn.getCidBefore();
+                    strandC = fn.getStrandBefore();
+                    strand1 = fn.getStrandAfter();
+                }
+                if (fn.getCidBefore().equals(cid2)) {
+                    cidD = fn.getCidAfter();
+                    strandD = fn.getStrandAfter();
+                    strand2 = fn.getStrandBefore();
+                }
+                if (fn.getCidAfter().equals(cid2)) {
+                    cidD = fn.getCidBefore();
+                    strandD = fn.getStrandBefore();
+                    strand2 = fn.getStrandAfter();
+                }
+            }
+        }
+        //Now all labels are done, and all FN lines to be changed are in tmpFnList
+        for (FullNotation fn : tmpFnList) {
+            if (fn.getCrossingId().equals(cid)) {
+                if (fn.getCidBefore().equals(cidC)) {
+                    fn.setCidBefore(cidA);
+                    fn.setStrandBefore(strandA);
+                    fn.setCidAfter(cid2);
+                    fn.setStrandAfter(strand1);
+                }
+                if (fn.getCidAfter().equals(cidC)) {
+                    fn.setCidAfter(cidA);
+                    fn.setStrandAfter(strandA);
+                    fn.setCidBefore(cid2);
+                    fn.setStrandBefore(strand1);
+                }
+                if (fn.getCidBefore().equals(cidD)) {
+                    fn.setCidBefore(cidB);
+                    fn.setStrandBefore(strandB);
+                    fn.setCidAfter(cid1);
+                    fn.setStrandAfter(strand2);
+                }
+                if (fn.getCidAfter().equals(cidD)) {
+                    fn.setCidAfter(cidB);
+                    fn.setStrandAfter(strandB);
+                    fn.setCidBefore(cid1);
+                    fn.setStrandBefore(strand2);
+                }
+                //Two of these will hit and completely deal with the crossing_id = cid rows
+            }
+            if (fn.getCrossingId().equals(cid1)) {
+                if (fn.getCidBefore().equals(cidA) && fn.getCidAfter().equals(cid)) {
+                    fn.setCidBefore(cid);
+                    fn.setStrandBefore(strand2);
+                    fn.setCidAfter(cidC);
+                    fn.setStrandAfter(strandC);
+                } else if (fn.getCidAfter().equals(cidA) && fn.getCidBefore().equals(cid)) {
+                    fn.setCidAfter(cid);
+                    fn.setStrandAfter(strand2);
+                    fn.setCidBefore(cidC);
+                    fn.setStrandBefore(strandC);
+                }
+            }
+            if (fn.getCrossingId().equals(cid2)) {
+                if (fn.getCidBefore().equals(cidB) && fn.getCidAfter().equals(cid)) {
+                    fn.setCidBefore(cid);
+                    fn.setStrandBefore(strand1);
+                    fn.setCidAfter(cidD);
+                    fn.setStrandAfter(strandD);
+                } else if (fn.getCidAfter().equals(cidA) && fn.getCidBefore().equals(cid)) {
+                    fn.setCidAfter(cid1);
+                    fn.setStrandAfter(strand1);
+                    fn.setCidBefore(cidD);
+                    fn.setStrandBefore(strandD);
+                }
+            }
+            if (fn.getCrossingId().equals(cidA)) {
+                if (fn.getCidBefore().equals(cid1)) {
+                    fn.setCidBefore(cid);
+                }
+                if (fn.getCidAfter().equals(cid1)) {
+                    fn.setCidAfter(cid);
+                }
+            }
+            if (fn.getCrossingId().equals(cidB)) {
+                if (fn.getCidBefore().equals(cid2)) {
+                    fn.setCidBefore(cid);
+                }
+                if (fn.getCidAfter().equals(cid2)) {
+                    fn.setCidAfter(cid);
+                }
+            }
+            if (fn.getCrossingId().equals(cidC)) {
+                if (fn.getCidBefore().equals(cid)) {
+                    fn.setCidBefore(cid1);
+                }
+                if (fn.getCidAfter().equals(cid)) {
+                    fn.setCidAfter(cid1);
+                }
+            }
+            if (fn.getCrossingId().equals(cidD)) {
+                if (fn.getCidBefore().equals(cid)) {
+                    fn.setCidBefore(cid2);
+                }
+                if (fn.getCidAfter().equals(cid)) {
+                    fn.setCidAfter(cid2);
+                }
+            }
+        }
+        newFnList.addAll(tmpFnList);
+        return newFnList;
+    }
+

@@ -26,6 +26,19 @@ class BackendApplicationTests {
     @Autowired private ExperimentStatesRepo statesRepo;
     @Autowired private FullNotationRolfRepo rolfNotationRepo;
     @Autowired private EntityManager entityManager;
+    @Autowired private ExperimentsRepo experimentsRepo;
+
+    @Test
+    void experimentIdsStartAtZeroAndGoUpByOne() {
+        // Runs first in a fresh database, so the sequence hasn't been used yet.
+        experimentsRepo.deleteAll();
+        var ids = java.util.stream.IntStream.range(0, 3)
+                .mapToObj(i -> experimentsRepo.save(new Experiments()).getExperimentId()).toList();
+        assertThat(ids.get(1) - ids.get(0)).isEqualTo(1L);
+        assertThat(ids.get(2) - ids.get(1)).isEqualTo(1L);
+        Long next = ((Number) entityManager.createNativeQuery("select nextval('experiments_seq')").getSingleResult()).longValue();
+        assertThat(next).isEqualTo(ids.get(2) + 1);
+    }
 
     @Test
     void rejectsMissingDataAndInvalidMovesOverHttp() {

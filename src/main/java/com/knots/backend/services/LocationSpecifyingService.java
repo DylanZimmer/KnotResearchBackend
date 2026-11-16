@@ -262,6 +262,36 @@ public class LocationSpecifyingService {
         return current;
     }
 
+    // Strands that start (atStart = true) or end (atStart = false) at a crossing passage matching
+    // crossingType. At each FullNotation row the strand leaving the passage is strandAfter and the
+    // one arriving is strandBefore; a strand oriented against the diagram is read the other way.
+    private HashMap<Long, Boolean> strandsAtCrossings(List<FullNotation> fnList, CrossingTypeDto crossingType, boolean atStart,
+                                                      HashMap<Long, Boolean> orientedStrands) {
+        HashMap<Long, Boolean> matching = new HashMap<>(orientedStrands);
+        if (crossingType.sign() == null && crossingType.placement() == null) {
+            return matching;
+        }
+        matching.clear();
+        for (FullNotation fn : fnList) {
+            boolean fits = (crossingType.sign() == null || crossingType.sign() == fn.getSign())
+                    && (crossingType.placement() == null || crossingType.placement() == fn.getPlacement());
+            if (!fits) {
+                continue;
+            }
+            Long leaving = fn.getStrandAfter();
+            Long arriving = fn.getStrandBefore();
+            Long withDiagram = atStart ? leaving : arriving;
+            Long against = atStart ? arriving : leaving;
+            if (Boolean.TRUE.equals(orientedStrands.get(withDiagram))) {
+                matching.put(withDiagram, true);
+            }
+            if (Boolean.FALSE.equals(orientedStrands.get(against))) {
+                matching.put(against, false);
+            }
+        }
+        return matching;
+    }
+
     public HashMap<Long, Boolean> checkStrand(List<FullNotation> fnList, StrandTypeDto strandType, HashMap<Long, Boolean> orientedStrands) {
 
         if (strandType == null) {
@@ -278,75 +308,15 @@ public class LocationSpecifyingService {
             potentialStrands = intersectStrandMaps(potentialStrands, matchingStrands);
         }
 
+        // crossing_before: the crossing the strand starts at; crossing_after: the one it ends at
+        // (both in the strand's own direction, so orientedWith = false swaps them).
         if (strandType.crossing_before() != null) {
-            CrossingTypeDto cb = strandType.crossing_before();
-            if (cb.sign() != null) {
-                HashMap<Long, Boolean> matchingStrands = new HashMap<>();
-                for (FullNotation fn : fnList) {
-                    if (cb.sign().equals(fn.getSign())) {
-                        Long before = fn.getStrandBefore();
-                        Long after = fn.getStrandAfter();
-                        if (Boolean.TRUE.equals(orientedStrands.get(before))) {
-                            matchingStrands.put(before, orientedStrands.get(before));
-                        }
-                        if (Boolean.FALSE.equals(orientedStrands.get(after))) {
-                            matchingStrands.put(after, orientedStrands.get(after));
-                        }
-                    }
-                }
-                potentialStrands = intersectStrandMaps(potentialStrands, matchingStrands);
-            }
-            if (cb.placement() != null) {
-                HashMap<Long, Boolean> matchingStrands = new HashMap<>();
-                for (FullNotation fn : fnList) {
-                    if (cb.placement().equals(fn.getPlacement())) {
-                        Long before = fn.getStrandBefore();
-                        Long after = fn.getStrandAfter();
-                        if (Boolean.TRUE.equals(orientedStrands.get(before))) {
-                            matchingStrands.put(before, orientedStrands.get(before));
-                        }
-                        if (Boolean.FALSE.equals(orientedStrands.get(after))) {
-                            matchingStrands.put(after, orientedStrands.get(after));
-                        }
-                    }
-                }
-                potentialStrands = intersectStrandMaps(potentialStrands, matchingStrands);
-            }
+            potentialStrands = intersectStrandMaps(potentialStrands,
+                    strandsAtCrossings(fnList, strandType.crossing_before(), true, orientedStrands));
         }
         if (strandType.crossing_after() != null) {
-            CrossingTypeDto ca = strandType.crossing_after();
-            if (ca.sign() != null) {
-                HashMap<Long, Boolean> matchingStrands = new HashMap<>();
-                for (FullNotation fn : fnList) {
-                    if (ca.sign().equals(fn.getSign())) {
-                        Long before = fn.getStrandBefore();
-                        Long after = fn.getStrandAfter();
-                        if (Boolean.FALSE.equals(orientedStrands.get(before))) {
-                            matchingStrands.put(before, orientedStrands.get(before));
-                        }
-                        if (Boolean.TRUE.equals(orientedStrands.get(after))) {
-                            matchingStrands.put(after, orientedStrands.get(after));
-                        }
-                    }
-                }
-                potentialStrands = intersectStrandMaps(potentialStrands, matchingStrands);
-            }
-            if (ca.placement() != null) {
-                HashMap<Long, Boolean> matchingStrands = new HashMap<>();
-                for (FullNotation fn : fnList) {
-                    if (ca.placement().equals(fn.getPlacement())) {
-                        Long before = fn.getStrandBefore();
-                        Long after = fn.getStrandAfter();
-                        if (Boolean.FALSE.equals(orientedStrands.get(before))) {
-                            matchingStrands.put(before, orientedStrands.get(before));
-                        }
-                        if (Boolean.TRUE.equals(orientedStrands.get(after))) {
-                            matchingStrands.put(after, orientedStrands.get(after));
-                        }
-                    }
-                }
-                potentialStrands = intersectStrandMaps(potentialStrands, matchingStrands);
-            }
+            potentialStrands = intersectStrandMaps(potentialStrands,
+                    strandsAtCrossings(fnList, strandType.crossing_after(), false, orientedStrands));
         }
         return potentialStrands == null ? new HashMap<>(orientedStrands) : potentialStrands;
     }

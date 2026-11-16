@@ -5,7 +5,9 @@ $healthUrl = "http://localhost:8000/health"
 
 Push-Location $repositoryRoot
 try {
-    docker compose up --build --detach sage-math
+    # Spring Boot runs on this machine, not in Docker, so the AI container reaches it through the host.
+    $env:AI_BACKEND_URL = "http://host.docker.internal:8080"
+    docker compose up --build --detach sage-math ai-service
 
     Write-Host "Waiting for SageMath at $healthUrl ..."
     $healthy = $false
@@ -33,7 +35,7 @@ try {
     }
 }
 finally {
-    Write-Host "Stopping the SageMath service..."
-    docker compose stop sage-math
+    Write-Host "Stopping the SageMath and AI services..."
+    docker compose stop sage-math ai-service
     Pop-Location
 }

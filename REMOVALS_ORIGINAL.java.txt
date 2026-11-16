@@ -1,0 +1,200 @@
+// Original twist / poke removal code from FullNotationMovesService, replaced on 2026-11-12
+// (see EXPERIMENT_BRANCHING_CHANGES.md, Round 4).
+
+    //Done but untested
+    public List<FullNotation> remTwist(List<FullNotation> fnList, Long cid) {
+        List<FullNotation> newFnList = new ArrayList<>();
+        Long cidBefore = null;
+        Long cidAfter = null;
+        Long strandBefore = null;
+        Long strandAfter = null;
+        for (FullNotation fn : fnList) {
+            if (fn.getCrossingId().equals(cid)) {
+                if (fn.getCidBefore().equals(cid)) {
+                    cidAfter = fn.getCidAfter();
+                    strandAfter = fn.getStrandAfter();
+                }
+                if (fn.getCidAfter().equals(cid)) {
+                    cidBefore = fn.getCidBefore();
+                    strandBefore = fn.getStrandBefore();
+                }
+            } else {
+                newFnList.add(fn);
+            }
+        }
+        for (FullNotation fn : newFnList) {
+            if (fn.getCidBefore().equals(cid)) {
+                fn.setCidBefore(cidBefore);
+                fn.setStrandBefore(strandBefore);
+            }
+            if (fn.getCidAfter().equals(cid)) {
+                fn.setCidBefore(cidAfter);
+                fn.setStrandBefore(strandAfter);
+            }
+        }
+        return newFnList;
+    }
+
+
+    private Long remPokeSetStrand(Long strand, Long strandA, Long strandB) {
+        Long strand1;
+        Long strand2;
+        if (strandA < strandB) {
+            strand1 = strandA;
+            strand2 = strandB;
+        } else {
+            strand1 = strandB;
+            strand2 = strandA;
+        }
+        if (strand > strand1) {
+            if (strand > strand2) {
+                return strand - 4;
+            } else {
+                return strand - 2;
+            }
+        } else {
+            return strand;
+        }
+    }
+
+    private Long remPokeSetCid(Long cid, Long cidA, Long cidB) {
+        Long cid1;
+        Long cid2;
+        if (cidA < cidB) {
+            cid1 = cidA;
+            cid2 = cidB;
+        } else {
+            cid1 = cidB;
+            cid2 = cidA;
+        }
+        if (cid > cid1) {
+            if (cid > cid2) {
+                return cid - 2;
+            } else {
+                return cid - 1;
+            }
+        } else {
+            return cid;
+        }
+    }
+
+
+
+
+    //Done but untested
+    public List<FullNotation> remPoke(List<FullNotation> fnList, Long cid1, Long cid2) {
+        List<FullNotation> newFnList = new ArrayList<>();
+        List<FullNotation> tmpFnList = new ArrayList<>();
+        Long cid1Under = null;
+        Long cid1Over = null;
+        Long cid2Under = null;
+        Long cid2Over = null;
+        for (FullNotation fn : fnList) {
+            if (fn.getCrossingId().equals(cid1)) {
+                if (fn.getPlacement() == Placement.over) {
+                    cid1Under = fn.getCidAfter().equals(cid2) ? fn.getCidBefore() : fn.getCidAfter();
+                } else {
+                    cid1Over = fn.getCidAfter().equals(cid2) ? fn.getCidBefore() : fn.getCidAfter();
+                }
+            } else if (fn.getCrossingId().equals(cid2)) {
+                if (fn.getPlacement() == Placement.over) {
+                    cid1Under = fn.getCidAfter().equals(cid1) ? fn.getCidBefore() : fn.getCidAfter();
+                } else {
+                    cid1Over = fn.getCidAfter().equals(cid1) ? fn.getCidBefore() : fn.getCidAfter();
+                }
+            } else if (fn.getCidBefore().equals(cid1) || fn.getCidBefore().equals(cid2)
+                              || fn.getCidAfter().equals(cid1) || fn.getCidAfter().equals(cid2)) {
+                tmpFnList.add(fn);
+            } else {
+                newFnList.add(fn);
+            }
+        }
+        for (FullNotation fn : tmpFnList) {
+            if (fn.getCidBefore().equals(cid1)) {
+                fn.setCidBefore(fn.getPlacement() == Placement.over ? cid2Over : cid2Under);
+            }
+            if (fn.getCidAfter().equals(cid1)) {
+                fn.setCidAfter(fn.getPlacement() == Placement.over ? cid1Over : cid1Under);
+            }
+            if (fn.getCidBefore().equals(cid2)) {
+                fn.setCidBefore(fn.getPlacement() == Placement.over ? cid1Over : cid1Under);
+            }
+            if (fn.getCidAfter().equals(cid1)) {
+                fn.setCidAfter(fn.getPlacement() == Placement.over ? cid2Over : cid2Under);
+            }
+        }
+        newFnList.addAll(tmpFnList);
+        return newFnList;
+    }
+
+
+
+    //Removing a poke is a matter of removing each strand in the bigon
+    //So this should return a list of pairs of strands, and removing them will involve
+        //taking each out and connecting the crossing s that are to either side of them
+
+
+    //Crossing x has a twist if it's cid is equal to its cid_before in one line and its cid_after in the other
+    public List<Long> getAllTwisted(List<FullNotation> fnList) {
+        List<Long> twists = new ArrayList<>();
+        Set<Long> crossingIds = fnList.stream().map(FullNotation::getCrossingId).collect(Collectors.toSet());
+        for (Long cid : crossingIds) {
+            List<FullNotation> cidFnLines = fnList.stream().filter(fn -> fn.getCrossingId().equals(cid)).toList();
+            boolean firstHit = cidFnLines.stream().anyMatch(fn -> fn.getCidBefore().equals(cid) && !fn.getCidAfter().equals(cid));
+            boolean secondHit = cidFnLines.stream().anyMatch(fn -> fn.getCidAfter().equals(cid) && !fn.getCidBefore().equals(cid));
+            if (firstHit && secondHit) {
+                twists.add(cid);
+            }
+        }
+        return twists;
+    }
+
+    //Pokes are characterized by a two crossing boundary where
+    //Crossings x and y form a poke if
+    //cid_x_before = cid_y_after and
+    //cid_x_after = cid_y_before
+    //which forms a boundary, and it's a poke if the shared entries have the same placement
+    public List<LongPair> getAllPoked(List<FullNotation> fnList) {
+        List<LongPair> pokedCids = new ArrayList<>();
+        Set<Long> crossingIds = fnList.stream().map(FullNotation::getCrossingId).collect(Collectors.toSet());
+        for (Long cid : crossingIds) {
+            //a cid is part of a poke if both of the placements equal the other, either the firsts or the seconds
+            FullNotation cidFnOver = fnList.stream().filter(fn -> fn.getCrossingId().equals(cid) && fn.getPlacement().equals(Placement.over)).findFirst().orElse(null);
+            FullNotation cidFnUnder = fnList.stream().filter(fn -> fn.getCrossingId().equals(cid) && fn.getPlacement().equals(Placement.under)).findFirst().orElse(null);
+            FullNotation doubleOver = fnList.stream().filter(fn -> (fn.getCidAfter().equals(cidFnOver.getCidBefore()) || fn.getCidAfter().equals(cidFnOver.getCidAfter())) && fn.getPlacement().equals(Placement.over)).findFirst().orElse(null);
+            FullNotation doubleUnder = fnList.stream().filter(fn -> (fn.getCidAfter().equals(cidFnOver.getCidBefore()) || fn.getCidAfter().equals(cidFnUnder.getCidAfter())) && fn.getPlacement().equals(Placement.under)).findFirst().orElse(null);
+            Optional.ofNullable(doubleOver).ifPresent(fn -> pokedCids.add(new LongPair(cid, fn.getCrossingId())));
+            Optional.ofNullable(doubleUnder).ifPresent(fn -> pokedCids.add(new LongPair(cid, fn.getCrossingId())));
+        }
+        return pokedCids;
+    }
+
+    //Need to deal with the case where I have two pokes that share a cid in the middle
+    private List<LongPair> remDuplicateCrossingsFromPokes(List<LongPair> pairs) {
+        Set<Long> seen = new HashSet<>();
+        List<LongPair> remainingPokes = new ArrayList<>();
+        for (LongPair pair : pairs) {
+            if (seen.add(pair.x()) && seen.add(pair.y())) {
+                remainingPokes.add(pair);
+            }
+        }
+        return remainingPokes;
+    }
+
+    public List<FullNotation> remPokesAndTwists(List<FullNotation> fnList) {
+        List<FullNotation> newFnList = new ArrayList<>();
+        List<LongPair> allPoked = getAllPoked(fnList);
+        List<Long> allTwisted = getAllTwisted(fnList);
+        while (!allPoked.isEmpty() || !allTwisted.isEmpty()) {
+            for (Long twist : allTwisted) {
+                newFnList = remTwist(fnList, twist);
+            }
+            allPoked = remDuplicateCrossingsFromPokes(getAllPoked(fnList));
+            for (LongPair poke : allPoked) {
+                newFnList = remPoke(fnList, poke.x(), poke.y());
+            }
+            allTwisted = getAllTwisted(fnList);
+            allPoked = getAllPoked(fnList);
+        }
+        return newFnList;
+    }
